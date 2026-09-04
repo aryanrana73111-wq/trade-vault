@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+body {
+  @apply bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
+}
+
+/* 
+  Instead of rewriting 100+ files to add dark: classes, 
+  we dynamically invert the specific light theme utility classes when inside .dark
+*/
+@layer utilities {
+  .dark {
+    /* Backgrounds */
+    .bg-white { background-color: var(--color-slate-900) !important; }
+    .bg-slate-50 { background-color: var(--color-slate-950) !important; }
+    .bg-slate-100 { background-color: var(--color-slate-800) !important; }
+    
+    /* Text */
+    .text-slate-900 { color: var(--color-slate-50) !important; }
+    .text-slate-800 { color: var(--color-slate-200) !important; }
+    .text-slate-700 { color: var(--color-slate-300) !important; }
+    .text-slate-600 { color: var(--color-slate-400) !important; }
+    .text-slate-500 { color: var(--color-slate-400) !important; }
+    
+    /* Borders */
+    .border-slate-200 { border-color: var(--color-slate-800) !important; }
+    .border-slate-100 { border-color: var(--color-slate-800) !important; }
+    .border-slate-300 { border-color: var(--color-slate-700) !important; }
+    .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-slate-800) !important; }
+    
+    /* Hover states */
+    .hover\:bg-slate-50:hover { background-color: var(--color-slate-800) !important; }
+    .hover\:bg-slate-100:hover { background-color: var(--color-slate-800) !important; }
+    
+    /* Invert previously dark elements that should be dark elements with light text */
+    .bg-slate-900 { background-color: var(--color-slate-950) !important; border: 1px solid var(--color-slate-800) !important; }
+  }
+}

@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'createdAt', 'updatedAt']) 
+          && data.id is string && data.id.size() <= 128
+          && data.email is string && data.email.size() <= 256
+          && data.createdAt is number
+          && data.updatedAt is number;
+    }
+
+    function isValidDashboard(data) {
+      return data.keys().hasAll(['id', 'name', 'createdAt', 'updatedAt'])
+          && data.id is string && data.id.size() <= 128
+          && data.name is string && data.name.size() <= 128
+          && data.createdAt is number
+          && data.updatedAt is number;
+    }
+
+    function isValidTrade(data) {
+      return data.keys().hasAll(['id', 'date', 'market', 'direction', 'entry', 'createdAt', 'updatedAt'])
+          && data.id is string && data.id.size() <= 128
+          && data.date is number
+          && data.market is string && data.market.size() <= 64
+          && data.direction is string && data.direction.matches('^(BUY|SELL)$')
+          && data.entry is number
+          && data.createdAt is number
+          && data.updatedAt is number;
+    }
+
+    function isValidStrategy(data) {
+      return data.keys().hasAll(['id', 'name', 'createdAt', 'updatedAt'])
+          && data.id is string && data.id.size() <= 128
+          && data.name is string && data.name.size() <= 128
+          && data.createdAt is number
+          && data.updatedAt is number;
+    }
+
+    // Paths
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidId(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidId(userId) && isValidUser(incoming());
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+
+      match /dashboards/{dashboardId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId && isValidId(dashboardId) && isValidDashboard(incoming());
+        allow update: if isSignedIn() && request.auth.uid == userId && isValidId(dashboardId) && isValidDashboard(incoming());
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+
+        match /trades/{tradeId} {
+          allow read: if isSignedIn() && request.auth.uid == userId;
+          allow create: if isSignedIn() && request.auth.uid == userId && isValidId(tradeId) && isValidTrade(incoming());
+          allow update: if isSignedIn() && request.auth.uid == userId && isValidId(tradeId) && isValidTrade(incoming());
+          allow delete: if isSignedIn() && request.auth.uid == userId;
+        }
+
+        match /strategies/{strategyId} {
+          allow read: if isSignedIn() && request.auth.uid == userId;
+          allow create: if isSignedIn() && request.auth.uid == userId && isValidId(strategyId) && isValidStrategy(incoming());
+          allow update: if isSignedIn() && request.auth.uid == userId && isValidId(strategyId) && isValidStrategy(incoming());
+          allow delete: if isSignedIn() && request.auth.uid == userId;
+        }
+      }
+    }
+  }
+}

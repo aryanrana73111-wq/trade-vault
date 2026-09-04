@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "email"]
+    },
+    "Dashboard": {
+      "title": "Dashboard",
+      "description": "A trading journal dashboard",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "currency": { "type": "string" },
+        "startingBalance": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name", "createdAt"]
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "A single trade record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "number" },
+        "market": { "type": "string" },
+        "direction": { "type": "string", "enum": ["BUY", "SELL"] },
+        "entry": { "type": "number" },
+        "stopLoss": { "type": "number" },
+        "takeProfit": { "type": "number" },
+        "positionSize": { "type": "number" },
+        "risk": { "type": "number" },
+        "strategy": { "type": "string" },
+        "session": { "type": "string" },
+        "notes": { "type": "string" },
+        "mistake": { "type": "string" },
+        "learning": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "date", "market", "direction", "entry"]
+    },
+    "Strategy": {
+      "title": "Strategy",
+      "description": "A trading strategy",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "shortDescription": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Archived"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/users/{userId}/dashboards/{dashboardId}": {
+      "schema": { "$ref": "#/entities/Dashboard" },
+      "description": "User's individual trading dashboards"
+    },
+    "/users/{userId}/dashboards/{dashboardId}/trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/Trade" },
+      "description": "Trades belonging to a dashboard"
+    },
+    "/users/{userId}/dashboards/{dashboardId}/strategies/{strategyId}": {
+      "schema": { "$ref": "#/entities/Strategy" },
+      "description": "Strategies belonging to a dashboard"
+    }
+  }
+}
