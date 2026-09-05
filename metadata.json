@@ -2,5 +2,7 @@
   "name": "TradeVault",
   "description": "A premium, modern trading journal and analytics platform for serious traders.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

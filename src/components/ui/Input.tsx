@@ -6,18 +6,18 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, icon, ...props }, ref) => {
+  ({ className, type = 'text', icon, ...props }, ref) => {
     return (
-      <div className="relative">
+      <div className="relative w-full">
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
             {icon}
           </div>
         )}
         <input
           type={type}
           className={cn(
-            'flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow',
+            'flex h-10 w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-background)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--input-focus)] focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow',
             icon && 'pl-10',
             className
           )}
@@ -30,11 +30,33 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = 'Input';
 
+export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  icon?: React.ReactNode;
+}
+
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, children, ...props }, ref) => {
+    return (
+      <select
+        ref={ref}
+        className={cn(
+          'flex h-10 w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-background)] px-3 py-2 text-sm text-[var(--input-text)] focus:outline-none focus:ring-2 focus:ring-[var(--input-focus)] focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow',
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+    );
+  }
+);
+Select.displayName = 'Select';
+
 export const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
   ({ className, ...props }, ref) => (
     <label
       ref={ref}
-      className={cn('text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-slate-700', className)}
+      className={cn('text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-slate-700 dark:text-slate-200', className)}
       {...props}
     />
   )
@@ -48,7 +70,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <textarea
         className={cn(
-          'flex min-h-[80px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow resize-y',
+          'flex min-h-[80px] w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-background)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--input-focus)] focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow resize-y',
           className
         )}
         ref={ref}
@@ -61,7 +83,7 @@ Textarea.displayName = 'Textarea';
 
 export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm', className)} {...props} />
+    <div ref={ref} className={cn('rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm', className)} {...props} />
   )
 );
 Card.displayName = 'Card';

@@ -19,7 +19,13 @@ export default function Journal() {
   const [filterDirection, setFilterDirection] = useState<string>('ALL');
 
   useEffect(() => {
-    setTrades([...rawTrades].sort((a, b) => b.date - a.date));
+    const seen = new Set<string>();
+    const unique = rawTrades.filter(t => {
+      if (!t?.id || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+    setTrades(unique.sort((a, b) => b.date - a.date));
   }, [rawTrades]);
 
   const filteredTrades = trades.filter(t => {

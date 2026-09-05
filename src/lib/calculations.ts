@@ -40,6 +40,7 @@ export function calculateKPIs(trades: Trade[]) {
   const closedTrades = trades.filter(t => t.result === 'WIN' || t.result === 'LOSS' || t.result === 'BREAK EVEN');
   const winningTrades = closedTrades.filter(t => t.result === 'WIN');
   const losingTrades = closedTrades.filter(t => t.result === 'LOSS');
+  const breakEvenTrades = closedTrades.filter(t => t.result === 'BREAK EVEN');
   
   let totalGrossProfit = 0;
   let totalGrossLoss = 0;
@@ -53,20 +54,33 @@ export function calculateKPIs(trades: Trade[]) {
     if (pnl < 0) totalGrossLoss += Math.abs(pnl);
     
     // R multiple logic
-    if (t.rMultiple !== undefined) {
+    if (t.rMultiple !== undefined && isFinite(t.rMultiple)) {
       totalRMultiple += t.rMultiple;
-    } else if (t.risk) {
+    } else if (t.risk && t.risk > 0) {
       totalRMultiple += (pnl / t.risk);
     }
   });
 
   const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
-  const profitFactor = totalGrossLoss > 0 ? totalGrossProfit / totalGrossLoss : (totalGrossProfit > 0 ? Infinity : 0);
+  
+  // Profit factor: if no losses and profit exists, capped at 100 with isAllWins flag
+  const isAllWins = closedTrades.length > 0 && losingTrades.length === 0 && winningTrades.length > 0;
+  let profitFactor = 0;
+  if (totalGrossLoss > 0) {
+    profitFactor = totalGrossProfit / totalGrossLoss;
+  } else if (totalGrossProfit > 0) {
+    profitFactor = 100; // Represents maximum/all wins
+  }
+
   const expectancy = closedTrades.length > 0 ? totalNetPnl / closedTrades.length : 0;
   const averageR = closedTrades.length > 0 ? totalRMultiple / closedTrades.length : 0;
   const totalTradesCount = trades.length; // all trades
   
-  const averageRisk = closedTrades.reduce((acc, t) => acc + (t.risk || 0), 0) / (closedTrades.length || 1);
+  const averageWin = winningTrades.length > 0 ? totalGrossProfit / winningTrades.length : 0;
+  const averageLoss = losingTrades.length > 0 ? totalGrossLoss / losingTrades.length : 0;
+  const averageRisk = closedTrades.length > 0 
+    ? closedTrades.reduce((acc, t) => acc + (t.risk || 0), 0) / closedTrades.length 
+    : 0;
 
   // Simple Max Drawdown calculation (approximate from closed trades sequential PnL)
   let peak = 0;
@@ -87,11 +101,19 @@ export function calculateKPIs(trades: Trade[]) {
     netPnl: totalNetPnl,
     winRate,
     totalTrades: totalTradesCount,
+    winTrades: winningTrades.length,
+    lossTrades: losingTrades.length,
+    breakEvenTrades: breakEvenTrades.length,
     profitFactor,
+    isAllWins,
     expectancy,
     averageR,
+    averageWin,
+    averageLoss,
     maxDrawdown,
     averageRisk,
+    totalGrossProfit,
+    totalGrossLoss,
     closedTradesCount: closedTrades.length
   };
 }

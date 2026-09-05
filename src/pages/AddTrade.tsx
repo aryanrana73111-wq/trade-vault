@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, Input, Label, Textarea, Badge } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useData } from '@/contexts/DataContext';
@@ -7,10 +7,17 @@ import { getSettings } from '@/lib/settings';
 import { Trade, Market, Direction, Session, Emotion, Timeframe, MarketCondition, Strategy } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
 import { calculateTradeMetrics } from '@/lib/calculations';
+import { compressImageToDataUrl } from '@/lib/avatarStorage';
 import { UploadCloud, CheckCircle2, X, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
-export default function AddTrade() {
+export interface AddTradeProps {
+  onSuccess?: (savedTrade: Trade) => void;
+  onCancel?: () => void;
+  isModal?: boolean;
+}
+
+export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps = {}) {
   const navigate = useNavigate();
   const { strategies: rawStrategies, saveTrade } = useData();
   const [strategies, setStrategies] = useState<Strategy[]>([]);
@@ -45,6 +52,26 @@ export default function AddTrade() {
   const [otherEmotion, setOtherEmotion] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({});
+  const [prefilledFromCalculator, setPrefilledFromCalculator] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.prefill) {
+      const p = location.state.prefill;
+      setFormData(prev => ({
+        ...prev,
+        market: (p.market || prev.market) as Market,
+        direction: (p.direction || prev.direction) as Direction,
+        entry: p.entry !== undefined ? p.entry : prev.entry,
+        stopLoss: p.stopLoss !== undefined ? p.stopLoss : prev.stopLoss,
+        takeProfit: p.takeProfit !== undefined ? p.takeProfit : prev.takeProfit,
+        positionSize: p.positionSize !== undefined ? p.positionSize : prev.positionSize,
+        risk: p.risk !== undefined ? p.risk : prev.risk,
+        riskPercent: p.riskPercent !== undefined ? p.riskPercent : prev.riskPercent,
+      }));
+      setPrefilledFromCalculator(true);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     setStrategies(rawStrategies.filter(s => s.status === 'Active'));
@@ -117,9 +144,14 @@ export default function AddTrade() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const [isDraggingScreenshot, setIsDraggingScreenshot] = useState(false);
+
+  const processImageFile = async (file: File) => {
+    if (!file) return;
+    try {
+      const compressed = await compressImageToDataUrl(file, 1280, 960, 0.82);
+      setFormData(prev => ({ ...prev, screenshot: compressed }));
+    } catch {
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, screenshot: reader.result as string }));
@@ -128,9 +160,47 @@ export default function AddTrade() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processImageFile(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleScreenshotDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingScreenshot(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processImageFile(file);
+    }
+  };
+
   const handleRemoveScreenshot = () => {
     setFormData(prev => ({ ...prev, screenshot: '' }));
   };
+
+  // Allow pasting screenshot anywhere on the form (e.g. Snipping tool / clipboard)
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            processImageFile(file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent, addAnother = false) => {
     e.preventDefault();
@@ -189,10 +259,15 @@ export default function AddTrade() {
     };
 
     try {
-      await saveTrade(tradePayload);
+      const savedTrade = await saveTrade(tradePayload);
       
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
+
+      if (onSuccess && savedTrade) {
+        onSuccess(savedTrade);
+        return;
+      }
 
       if (addAnother) {
         setFormData(prev => ({
@@ -213,11 +288,50 @@ export default function AddTrade() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-40 md:pb-24 relative">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Add New Trade</h1>
-        <p className="text-slate-500 mt-1">Document your trade details thoroughly.</p>
-      </div>
+    <div className={cn("max-w-4xl mx-auto relative", isModal ? "pb-4 px-1" : "pb-40 md:pb-24")}>
+      {isModal && onCancel ? (
+        <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Add New Trade</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Enter trade details and review behavioral metrics directly in Psychology</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      ) : (
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Add New Trade</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Document your trade details thoroughly.</p>
+        </div>
+      )}
+
+      {prefilledFromCalculator && (
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl flex items-center justify-between text-xs text-blue-900 dark:text-blue-100 animate-in fade-in duration-150 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <div>
+              <span className="font-bold block">Pre-filled from Risk Calculator</span>
+              <span className="text-blue-700 dark:text-blue-300">
+                Loaded {formData.market} ({formData.direction}) • Entry: {formData.entry} • SL: {formData.stopLoss} • Position: {formData.positionSize} • Risk: {formData.risk}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPrefilledFromCalculator(false)}
+            className="p-1 rounded-md text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+            title="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-8">
         
@@ -513,26 +627,45 @@ export default function AddTrade() {
               <input 
                 id="screenshot-upload"
                 type="file" 
-                accept="image/png, image/jpeg, image/jpg" 
+                accept="image/*" 
                 className="hidden" 
                 onChange={handleImageUpload}
               />
             </div>
           ) : (
-            <Label htmlFor="screenshot-upload" className="border-2 border-dashed border-slate-200 rounded-xl p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <UploadCloud className="w-6 h-6 text-blue-600" />
-              </div>
-              <p className="text-sm font-medium text-slate-900 mb-1">Click to upload or drag and drop</p>
-              <p className="text-xs text-slate-500">PNG, JPG, JPEG (max 5MB)</p>
-              <input 
-                id="screenshot-upload"
-                type="file" 
-                accept="image/png, image/jpeg, image/jpg" 
-                className="hidden" 
-                onChange={handleImageUpload}
-              />
-            </Label>
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDraggingScreenshot(true);
+              }}
+              onDragLeave={() => setIsDraggingScreenshot(false)}
+              onDrop={handleScreenshotDrop}
+              className={cn(
+                "border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center transition-colors cursor-pointer group",
+                isDraggingScreenshot 
+                  ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/40" 
+                  : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+              )}
+            >
+              <Label htmlFor="screenshot-upload" className="cursor-pointer flex flex-col items-center justify-center w-full">
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-950/70 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <UploadCloud className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">
+                  Click to upload or drag and drop
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  PNG, JPG, JPEG, WEBP or Paste (Ctrl+V)
+                </p>
+                <input 
+                  id="screenshot-upload"
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleImageUpload}
+                />
+              </Label>
+            </div>
           )}
         </Card>
 
@@ -542,12 +675,12 @@ export default function AddTrade() {
           <div className="space-y-8">
             <div className="space-y-3">
               <Label className="text-base">Trade Result (Optional)</Label>
-              <div className="flex gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'WIN' ? '' : 'WIN' }))}
                   className={cn(
-                    "flex-1 h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
                     formData.result === 'WIN' 
                       ? 'border-green-500 bg-green-500 text-white shadow-md shadow-green-200'
                       : 'border-slate-200 bg-white text-slate-500 hover:border-green-200 hover:bg-green-50'
@@ -559,7 +692,7 @@ export default function AddTrade() {
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'LOSS' ? '' : 'LOSS' }))}
                   className={cn(
-                    "flex-1 h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
                     formData.result === 'LOSS' 
                       ? 'border-red-500 bg-red-500 text-white shadow-md shadow-red-200'
                       : 'border-slate-200 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50'
@@ -569,9 +702,21 @@ export default function AddTrade() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'BREAK EVEN' ? '' : 'BREAK EVEN', pnl: '0' }))}
+                  className={cn(
+                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    formData.result === 'BREAK EVEN' 
+                      ? 'border-blue-500 bg-blue-500 text-white shadow-md shadow-blue-200'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:bg-blue-50'
+                  )}
+                >
+                  BREAK EVEN
+                </button>
+                <button
+                  type="button"
                   onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'PENDING' ? '' : 'PENDING' }))}
                   className={cn(
-                    "flex-1 h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
                     formData.result === 'PENDING' 
                       ? 'border-yellow-500 bg-yellow-500 text-white shadow-md shadow-yellow-200'
                       : 'border-slate-200 bg-white text-slate-500 hover:border-yellow-300 hover:bg-yellow-50'
@@ -620,15 +765,28 @@ export default function AddTrade() {
           </div>
         </Card>
 
-        {/* Sticky Actions */}
-        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-          <Button type="button" variant="outline" onClick={(e) => handleSubmit(e, true)} className="w-full sm:w-auto">
-            Save & Add Another
-          </Button>
-          <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[160px]">
-            Save Trade
-          </Button>
-        </div>
+        {/* Actions */}
+        {isModal ? (
+          <div className="sticky bottom-0 p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex flex-col-reverse sm:flex-row justify-end gap-3 z-30 -mx-4 -mb-4 mt-6">
+            {onCancel && (
+              <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[160px]">
+              Save & View Psychology
+            </Button>
+          </div>
+        ) : (
+          <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+            <Button type="button" variant="outline" onClick={(e) => handleSubmit(e, true)} className="w-full sm:w-auto">
+              Save & Add Another
+            </Button>
+            <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[160px]">
+              Save Trade
+            </Button>
+          </div>
+        )}
       </form>
 
       {/* Toast Notification */}

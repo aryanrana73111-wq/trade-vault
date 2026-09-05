@@ -10,6 +10,10 @@ import Strategies from '@/pages/Strategies';
 import CreateStrategy from '@/pages/CreateStrategy';
 import StrategyDetail from '@/pages/StrategyDetail';
 import Psychology from '@/pages/Psychology';
+import RiskCalculator from '@/pages/RiskCalculator';
+import LearningRules from '@/pages/LearningRules';
+import AILabs from '@/pages/AILabs';
+import { CommandCenter } from '@/pages/CommandCenter';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import Settings from '@/pages/Settings';
@@ -45,13 +49,20 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route path="command-center" element={<CommandCenter />} />
         <Route path="add" element={<AddTrade />} />
+        <Route path="calculator" element={<RiskCalculator />} />
         <Route path="journal" element={<Journal />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="strategies" element={<Strategies />} />
         <Route path="strategies/create" element={<CreateStrategy />} />
         <Route path="strategies/:id" element={<StrategyDetail />} />
         <Route path="psychology" element={<Psychology />} />
+        <Route path="ai-labs" element={<AILabs />} />
+        <Route path="labs" element={<Navigate to="/ai-labs" replace />} />
+        <Route path="learning-rules" element={<LearningRules />} />
+        <Route path="learning" element={<Navigate to="/learning-rules?tab=learning" replace />} />
+        <Route path="rules" element={<Navigate to="/learning-rules?tab=rules" replace />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

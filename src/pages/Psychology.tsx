@@ -1,372 +1,567 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Trade, Strategy } from '@/types';
-import { Card } from '@/components/ui/Input';
+import { Card, Input, Badge } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { formatCurrency, cn } from '@/lib/utils';
-import { 
-  Brain, AlertTriangle, CheckCircle2, TrendingDown, Target, Activity, Clock
-} from 'lucide-react';
-import { 
-  calculatePsychologyScore, analyzeEmotions, analyzeRuleAdherence, 
-  detectRevengeTrades, detectRiskEscalation, analyzeAfterLoss,
-  getBestPsychologicalState
+import { format } from 'date-fns';
+import {
+  calculatePsychologyOverview,
+  calculateTradePsychologyCompletion,
+  detectDetailedBehavioralPatterns,
+  analyzePsychologyByStrategy,
+  analyzePsychologyBySession,
+  analyzeEmotions
 } from '@/lib/psychology';
-import { Link } from 'react-router-dom';
+import { getSettings } from '@/lib/settings';
+import { PsychologyOverview } from '@/components/psychology/PsychologyOverview';
+import { PsychologyMatrix } from '@/components/psychology/PsychologyMatrix';
+import { PsychologyPatterns } from '@/components/psychology/PsychologyPatterns';
+import { PsychologyBreakdowns } from '@/components/psychology/PsychologyBreakdowns';
+import { PsychologyJournalSelector } from '@/components/psychology/PsychologyJournalSelector';
+import { PsychologyDetailModal } from '@/components/psychology/PsychologyDetailModal';
+import { AddTradeModal } from '@/components/psychology/AddTradeModal';
+import {
+  Brain,
+  Plus,
+  BookOpen,
+  Search,
+  Filter,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  ChevronRight,
+  TrendingUp,
+  BarChart3,
+  ListFilter,
+  Layers
+} from 'lucide-react';
 
 export default function Psychology() {
-  const { trades: rawTrades, strategies: rawStrategies } = useData();
+  const { trades: rawTrades, strategies: rawStrategies, updateTrade } = useData();
+  const settings = getSettings();
+
   const [trades, setTrades] = useState<Trade[]>([]);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
 
+  // Modals state
+  const [isAddTradeOpen, setIsAddTradeOpen] = useState(false);
+  const [isJournalSelectorOpen, setIsJournalSelectorOpen] = useState(false);
+  const [selectedTradeForDetail, setSelectedTradeForDetail] = useState<Trade | null>(null);
+
+  // Search & Filter state for the in-page trades table
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterResult, setFilterResult] = useState<string>('ALL');
+  const [filterEmotion, setFilterEmotion] = useState<string>('ALL');
+  const [filterCompletion, setFilterCompletion] = useState<string>('ALL');
+  const [filterRule, setFilterRule] = useState<string>('ALL');
+
+  // Active view section navigation
+  const [activeSection, setActiveSection] = useState<'all' | 'records' | 'matrix' | 'patterns' | 'context'>('all');
+
+  // Sync state with Context
   useEffect(() => {
-    setTrades([...rawTrades]);
+    const seen = new Set<string>();
+    const unique = rawTrades.filter(t => {
+      if (!t?.id || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+    setTrades(unique.sort((a, b) => b.date - a.date));
     setStrategies([...rawStrategies]);
+
+    // Keep selected trade in detail view up to date if it was modified
+    if (selectedTradeForDetail) {
+      const updated = unique.find(t => t.id === selectedTradeForDetail.id);
+      if (updated) {
+        setSelectedTradeForDetail(updated);
+      }
+    }
   }, [rawTrades, rawStrategies]);
 
-  if (trades.length < 5) {
-    return (
-      <div className="max-w-4xl mx-auto pb-24 space-y-6 animate-in fade-in">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Trading Psychology</h1>
-          <p className="text-slate-500 mt-1">Understand how your behavior affects your execution.</p>
-        </div>
-        
-        <Card className="p-12 text-center border-dashed border-slate-300 bg-slate-50">
-          <Brain className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-slate-900">Your behavioral analytics will appear here.</h3>
-          <p className="text-slate-500 mt-2 max-w-md mx-auto mb-6">
-            Start recording trades with emotions, rule adherence, and execution details to uncover your personal trading patterns. Minimum 5 trades required.
-          </p>
-          <Link to="/add">
-            <Button>Add Your First Trade</Button>
-          </Link>
-        </Card>
-      </div>
-    );
-  }
+  // Derived calculations
+  const overviewMetrics = useMemo(() => {
+    return calculatePsychologyOverview(trades, settings.risk.defaultRisk);
+  }, [trades, settings.risk.defaultRisk]);
 
-  const { score, breakdown } = calculatePsychologyScore(trades);
-  const emotionStats = analyzeEmotions(trades);
-  const adherenceStats = analyzeRuleAdherence(trades);
-  const revengeSequences = detectRevengeTrades(trades);
-  const riskEscalations = detectRiskEscalation(trades);
-  const afterLossStats = analyzeAfterLoss(trades);
-  const bestState = getBestPsychologicalState(trades);
+  const emotionStats = useMemo(() => {
+    return analyzeEmotions(trades);
+  }, [trades]);
+
+  const behavioralPatterns = useMemo(() => {
+    return detectDetailedBehavioralPatterns(trades, settings.risk.defaultRisk);
+  }, [trades, settings.risk.defaultRisk]);
+
+  const strategyStats = useMemo(() => {
+    return analyzePsychologyByStrategy(trades);
+  }, [trades]);
+
+  const sessionStats = useMemo(() => {
+    return analyzePsychologyBySession(trades);
+  }, [trades]);
+
+  // Precompute completion status for all trades
+  const tradesWithCompletion = useMemo(() => {
+    return trades.map(t => ({
+      trade: t,
+      completion: calculateTradePsychologyCompletion(t)
+    }));
+  }, [trades]);
+
+  // Filtered trades list for in-page table
+  const filteredTrades = useMemo(() => {
+    return tradesWithCompletion.filter(({ trade: t, completion }) => {
+      // Search
+      const strategyObj = strategies.find(s => s.id === t.strategy);
+      const strategyName = strategyObj ? strategyObj.name : t.strategy || '';
+      const marketMatch = (t.market || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const strategyMatch = strategyName.toLowerCase().includes(searchTerm.toLowerCase());
+      const notesMatch = (t.notes || '').toLowerCase().includes(searchTerm.toLowerCase());
+      if (searchTerm.trim() && !marketMatch && !strategyMatch && !notesMatch) return false;
+
+      // Result filter
+      if (filterResult !== 'ALL') {
+        if (filterResult === 'BREAK_EVEN' && t.result !== 'BREAK EVEN') return false;
+        if (filterResult !== 'BREAK_EVEN' && t.result !== filterResult) return false;
+      }
+
+      // Emotion filter
+      if (filterEmotion !== 'ALL') {
+        const hasEmotion = t.emotions?.includes(filterEmotion as any) || t.duringEmotions?.includes(filterEmotion as any) || t.exitEmotion === filterEmotion;
+        if (!hasEmotion) return false;
+      }
+
+      // Completion filter
+      if (filterCompletion !== 'ALL') {
+        if (filterCompletion === 'COMPLETE' && completion.status !== 'Complete') return false;
+        if (filterCompletion === 'PARTIAL' && completion.status !== 'Partially Completed') return false;
+        if (filterCompletion === 'NONE' && completion.status !== 'No Psychology Data') return false;
+      }
+
+      // Rule adherence filter
+      if (filterRule === 'FOLLOWED') {
+        if (t.ruleAdherence === undefined || t.ruleAdherence < 90) return false;
+      } else if (filterRule === 'BROKEN') {
+        if (t.ruleAdherence === undefined || t.ruleAdherence >= 70) return false;
+      }
+
+      return true;
+    });
+  }, [tradesWithCompletion, searchTerm, filterResult, filterEmotion, filterCompletion, filterRule, strategies]);
+
+  // Previous trade finder for selected trade
+  const previousTradeForSelected = useMemo(() => {
+    if (!selectedTradeForDetail) return undefined;
+    const sorted = [...trades].sort((a, b) => a.date - b.date);
+    const idx = sorted.findIndex(t => t.id === selectedTradeForDetail.id);
+    if (idx > 0) {
+      return sorted[idx - 1];
+    }
+    return undefined;
+  }, [trades, selectedTradeForDetail]);
+
+  const handleTradeCreated = (newTrade: Trade) => {
+    setIsAddTradeOpen(false);
+    // Directly open Psychology Detail for the newly created trade!
+    setSelectedTradeForDetail(newTrade);
+  };
 
   return (
-    <div className="max-w-6xl mx-auto pb-24 space-y-8 animate-in fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+    <div className="max-w-7xl mx-auto pb-24 space-y-8 animate-in fade-in duration-150">
+      {/* Top Header & Dedicated Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Trading Psychology</h1>
-          <p className="text-slate-500 mt-1">Understand how your behavior affects your execution.</p>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-purple-600 text-white shadow-sm">
+              <Brain className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                Psychology Workspace
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Behavioral analysis, execution discipline & emotional tracking connected to your trade records
+              </p>
+            </div>
+          </div>
         </div>
+
+        {/* Primary Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => setIsJournalSelectorOpen(true)}
+            className="gap-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold shadow-sm"
+          >
+            <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            From Journal
+          </Button>
+
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setIsAddTradeOpen(true)}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            + Add Trade
+          </Button>
+        </div>
+      </div>
+
+      {/* Navigation Pills */}
+      <div className="flex flex-wrap items-center gap-2 pb-2">
+        <button
+          onClick={() => setActiveSection('all')}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
+            activeSection === 'all'
+              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-transparent shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+          )}
+        >
+          All Workspace Modules
+        </button>
+
+        <button
+          onClick={() => setActiveSection('records')}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
+            activeSection === 'records'
+              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-transparent shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+          )}
+        >
+          Trade Records ({trades.length})
+        </button>
+
+        <button
+          onClick={() => setActiveSection('matrix')}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
+            activeSection === 'matrix'
+              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-transparent shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+          )}
+        >
+          Emotion Matrix
+        </button>
+
+        <button
+          onClick={() => setActiveSection('patterns')}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
+            activeSection === 'patterns'
+              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-transparent shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+          )}
+        >
+          Behavioral Patterns
+        </button>
+
+        <button
+          onClick={() => setActiveSection('context')}
+          className={cn(
+            "px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border",
+            activeSection === 'context'
+              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-transparent shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+          )}
+        >
+          Strategy & Session
+        </button>
       </div>
 
       {/* 1. OVERVIEW DASHBOARD */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="p-6 md:col-span-1 bg-slate-900 text-white flex flex-col justify-center shadow-sm relative overflow-hidden">
-          <div className="relative z-10">
-            <h3 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider">Behavioral Score</h3>
-            <div className="flex items-end gap-2 mb-2">
-              <span className="text-5xl font-light">{score}</span>
-              <span className="text-lg text-slate-400 mb-1">/ 100</span>
-            </div>
-            <p className="text-sm text-slate-400 mt-2">TradeVault Behavioral Score</p>
+      {(activeSection === 'all' || activeSection === 'matrix' || activeSection === 'records') && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-blue-500" /> Psychology Overview
+            </h2>
           </div>
-          <Brain className="absolute -right-4 -bottom-4 w-32 h-32 text-slate-800 opacity-50 pointer-events-none" />
-        </Card>
+          <PsychologyOverview metrics={overviewMetrics} />
+        </section>
+      )}
 
-        <Card className="p-6 md:col-span-3 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4 border-b border-slate-100 pb-2">Score Breakdown</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* 2. DEDICATED TRADE RECORDS & PSYCHOLOGY AUDIT LIST */}
+      {(activeSection === 'all' || activeSection === 'records') && (
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <p className="text-xs text-slate-500 mb-1">Rule Adherence</p>
-              <p className={cn("text-xl font-semibold", breakdown.ruleAdherence >= 80 ? "text-green-600" : "text-slate-900")}>{breakdown.ruleAdherence}%</p>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <ListFilter className="w-4 h-4 text-purple-500" /> Trade Psychology Records
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Review or complete behavioral observations on any existing trade
+              </p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Risk Discipline</p>
-              <p className={cn("text-xl font-semibold", breakdown.riskDiscipline >= 80 ? "text-green-600" : "text-slate-900")}>{breakdown.riskDiscipline}%</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-1">FOMO Control</p>
-              <p className={cn("text-xl font-semibold", breakdown.fomoControl >= 80 ? "text-green-600" : "text-slate-900")}>{breakdown.fomoControl}%</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Revenge Control</p>
-              <p className={cn("text-xl font-semibold", breakdown.revengeControl >= 80 ? "text-green-600" : "text-slate-900")}>{breakdown.revengeControl}%</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Emotional Stability</p>
-              <p className={cn("text-xl font-semibold", breakdown.emotionalStability >= 80 ? "text-green-600" : "text-slate-900")}>{breakdown.emotionalStability}%</p>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsJournalSelectorOpen(true)}
+                className="h-8 text-xs gap-1.5"
+              >
+                <Search className="w-3.5 h-3.5 text-slate-400" /> Search Journal
+              </Button>
             </div>
           </div>
-          
-          {bestState && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-4">
-              <Target className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-sm font-semibold text-blue-900">Your Strongest Historical Execution Profile</h4>
-                <p className="text-sm text-blue-800 mt-1">
-                  You perform best when your state is <strong>{bestState.emotion}</strong>, paired with <strong>{bestState.avgRuleAdherence}%</strong> rule adherence.
-                </p>
-                <div className="flex gap-4 mt-3 pt-3 border-t border-blue-200/50">
-                  <span className="text-xs font-medium text-blue-700">Avg R: <strong className="text-blue-900">+{bestState.avgR}R</strong></span>
-                  <span className="text-xs font-medium text-blue-700">Win Rate: <strong className="text-blue-900">{bestState.winRate}%</strong></span>
-                  <span className="text-xs font-medium text-blue-700">Sample: <strong className="text-blue-900">{bestState.count} trades</strong></span>
-                </div>
-              </div>
+
+          {/* Search & Filter Bar */}
+          <Card className="p-3.5 sm:p-4 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search market, strategy, or notes..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="pl-10 h-9 text-xs bg-slate-50 dark:bg-slate-800/60"
+              />
             </div>
-          )}
-        </Card>
-      </div>
 
-      {/* 2. PSYCHOLOGY VS PERFORMANCE MATRIX */}
-      <Card className="shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
-          <h3 className="text-lg font-semibold text-slate-900">Psychology vs Performance</h3>
-          <p className="text-sm text-slate-500 mt-1">Historically, these trades performed differently based on your recorded emotions.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4">Emotion</th>
-                <th className="px-6 py-4">Trades</th>
-                <th className="px-6 py-4">Win Rate</th>
-                <th className="px-6 py-4">Avg R</th>
-                <th className="px-6 py-4">Net P&L</th>
-                <th className="px-6 py-4">Rule Adherence</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {emotionStats.length > 0 ? emotionStats.map(stat => (
-                <tr key={stat.emotion} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">
-                    <div className="flex items-center gap-2">
-                      {stat.emotion}
-                      {stat.count < 5 && <span className="text-[10px] bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded font-medium">Small Sample</span>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">{stat.count}</td>
-                  <td className="px-6 py-4">{stat.winRate}%</td>
-                  <td className={cn("px-6 py-4 font-medium", stat.avgR > 0 ? "text-green-600" : stat.avgR < 0 ? "text-red-600" : "")}>
-                    {stat.avgR > 0 ? '+' : ''}{stat.avgR}R
-                  </td>
-                  <td className={cn("px-6 py-4 font-medium", stat.netPnl > 0 ? "text-green-600" : stat.netPnl < 0 ? "text-red-600" : "")}>
-                    {formatCurrency(stat.netPnl)}
-                  </td>
-                  <td className="px-6 py-4">{stat.avgRuleAdherence}%</td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                    Not enough data to identify a reliable pattern.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <select
+                value={filterResult}
+                onChange={e => setFilterResult(e.target.value)}
+                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none"
+              >
+                <option value="ALL">All Outcomes</option>
+                <option value="WIN">WIN</option>
+                <option value="LOSS">LOSS</option>
+                <option value="BREAK_EVEN">Cost to Cost (BE)</option>
+                <option value="PENDING">PENDING</option>
+              </select>
 
-      {/* 3. BEHAVIORAL LEAKS */}
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Behavioral Leaks</h2>
-          <p className="text-sm text-slate-500 mt-1">Recurring behaviors that may negatively affect your execution.</p>
-        </div>
+              <select
+                value={filterCompletion}
+                onChange={e => setFilterCompletion(e.target.value)}
+                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none"
+              >
+                <option value="ALL">All Completion States</option>
+                <option value="COMPLETE">Complete (100%)</option>
+                <option value="PARTIAL">Partially Completed</option>
+                <option value="NONE">Unrecorded (0%)</option>
+              </select>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Revenge Trading */}
-          <Card className="p-6 shadow-sm border-orange-100 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-orange-400"></div>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-orange-500" />
-                <h3 className="font-semibold text-slate-900">Revenge Trading Pattern</h3>
-              </div>
-              <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded">
-                {revengeSequences.length} Detected
-              </span>
+              <select
+                value={filterEmotion}
+                onChange={e => setFilterEmotion(e.target.value)}
+                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none"
+              >
+                <option value="ALL">All Emotions</option>
+                <option value="Calm">Calm</option>
+                <option value="Confident">Confident</option>
+                <option value="FOMO">FOMO</option>
+                <option value="Revenge">Revenge</option>
+                <option value="Fear">Fear</option>
+                <option value="Greed">Greed</option>
+                <option value="Anxious">Anxious</option>
+                <option value="Impatient">Impatient</option>
+                <option value="Disciplined">Disciplined</option>
+              </select>
+
+              <select
+                value={filterRule}
+                onChange={e => setFilterRule(e.target.value)}
+                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none"
+              >
+                <option value="ALL">All Rule Adherence</option>
+                <option value="FOLLOWED">Followed (≥90%)</option>
+                <option value="BROKEN">Broken (&lt;70%)</option>
+              </select>
             </div>
-            
-            {revengeSequences.length > 0 ? (
-              <div className="space-y-4">
-                <p className="text-sm text-slate-600">Your journal shows you occasionally re-enter the market shortly after a loss.</p>
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm space-y-2">
-                  <div className="flex justify-between text-slate-500 text-xs mb-1">
-                    <span>Recent Sequence Example</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium text-red-600">LOSS</span>
-                    <span className="text-slate-400">→</span>
-                    <span className="text-slate-700">{revengeSequences[0].minutesDiff} mins later</span>
-                    <span className="text-slate-400">→</span>
-                    <span className="text-slate-700">Risk +{revengeSequences[0].riskIncrease}%</span>
-                  </div>
-                </div>
-                <div className="pt-2">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Suggested Experiment</h4>
-                  <p className="text-sm text-slate-800">After any loss, wait at least 15 minutes before another entry.</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500 mt-2">No significant revenge trading patterns detected in your recent data.</p>
-            )}
           </Card>
 
-          {/* Risk Escalation */}
-          <Card className="p-6 shadow-sm border-blue-100 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingDown className="w-5 h-5 text-blue-500" />
-                <h3 className="font-semibold text-slate-900">Risk Escalation</h3>
-              </div>
-              <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded">
-                {riskEscalations.length} Detected
-              </span>
-            </div>
-            
-            {riskEscalations.length > 0 ? (
-              <div className="space-y-4">
-                <p className="text-sm text-slate-600">Your recorded risk occasionally increases after winning streaks.</p>
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-slate-500">Avg Risk (During Streak)</p>
-                      <p className="font-medium text-slate-900">{formatCurrency(riskEscalations[0].avgStreakRisk)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Escalated Risk (After)</p>
-                      <p className="font-medium text-red-600">{formatCurrency(riskEscalations[0].escalatedRisk)}</p>
-                    </div>
-                  </div>
+          {/* Trade Cards List */}
+          <div className="space-y-2.5">
+            {filteredTrades.length === 0 ? (
+              <Card className="p-10 text-center border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+                <Brain className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm">No trades found matching your filters</p>
+                <p className="text-xs text-slate-500 mt-1">Add a new trade or select from your journal</p>
+                <div className="mt-4 flex justify-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => { setSearchTerm(''); setFilterResult('ALL'); setFilterEmotion('ALL'); setFilterCompletion('ALL'); setFilterRule('ALL'); }}>
+                    Clear Filters
+                  </Button>
+                  <Button size="sm" onClick={() => setIsAddTradeOpen(true)}>
+                    + Add Trade
+                  </Button>
                 </div>
-                <div className="pt-2">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase mb-1">Suggested Experiment</h4>
-                  <p className="text-sm text-slate-800">Keep risk fixed for the next 20 trades and compare performance.</p>
-                </div>
-              </div>
+              </Card>
             ) : (
-              <p className="text-sm text-slate-500 mt-2">Your risk sizing appears consistent after winning streaks.</p>
+              filteredTrades.slice(0, 10).map(({ trade: t, completion }) => {
+                const strategyObj = strategies.find(s => s.id === t.strategy);
+                const strategyName = strategyObj ? strategyObj.name : t.strategy;
+
+                return (
+                  <Card
+                    key={t.id}
+                    className="p-3.5 sm:p-4 border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all shadow-sm cursor-pointer group"
+                    onClick={() => setSelectedTradeForDetail(t)}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-1.5 h-10 rounded-full flex-shrink-0",
+                          t.direction === 'BUY' ? "bg-green-500" : "bg-red-500"
+                        )} />
+
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{t.market}</span>
+                            <Badge variant={t.direction === 'BUY' ? 'success' : 'danger'} className="text-[10px] py-0 px-1.5">
+                              {t.direction}
+                            </Badge>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {format(new Date(t.date), 'MMM dd, yyyy')}
+                            </span>
+                            {strategyName && (
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                                {strategyName}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            <span>Entry: <strong className="text-slate-700 dark:text-slate-300">{t.entry}</strong></span>
+                            {t.stopLoss && <span>SL: <strong className="text-slate-700 dark:text-slate-300">{t.stopLoss}</strong></span>}
+                            {t.takeProfit && <span>TP: <strong className="text-slate-700 dark:text-slate-300">{t.takeProfit}</strong></span>}
+                            {t.emotions && t.emotions.length > 0 && (
+                              <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                {t.emotions.join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                        <div className="text-left sm:text-right">
+                          <div className="flex items-center gap-1.5 sm:justify-end">
+                            <span className={cn(
+                              "text-xs font-bold px-2 py-0.5 rounded-md",
+                              t.result === 'WIN' ? "bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300" :
+                              t.result === 'LOSS' ? "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300" :
+                              t.result === 'BREAK EVEN' ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" :
+                              "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/60 dark:text-yellow-300"
+                            )}>
+                              {t.result || 'PENDING'}
+                            </span>
+                            {t.pnl !== undefined && (
+                              <span className={cn("text-xs font-bold", t.pnl > 0 ? "text-green-600 dark:text-green-400" : (t.pnl < 0 ? "text-red-600 dark:text-red-400" : "text-slate-400"))}>
+                                {t.pnl > 0 ? '+' : ''}{formatCurrency(t.pnl)}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-1 flex items-center gap-1 sm:justify-end">
+                            {completion.status === 'Complete' ? (
+                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Complete
+                              </span>
+                            ) : completion.status === 'Partially Completed' ? (
+                              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> Partial ({completion.score}%)
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> Unrecorded
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/50 gap-1 px-2.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTradeForDetail(t);
+                          }}
+                        >
+                          Review <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })
             )}
-          </Card>
-        </div>
-      </div>
 
-      {/* 4. PERFORMANCE COMPARISONS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Rule Adherence */}
-        <Card className="p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-            <h3 className="font-semibold text-slate-900">Rule Adherence vs Performance</h3>
-          </div>
-          
-          <div className="space-y-6">
-            <div className="grid grid-cols-3 gap-4 pb-4 border-b border-slate-100">
-              <div>
-                <p className="text-sm font-medium text-slate-900 mb-1">Rules Followed</p>
-                <p className="text-xs text-slate-500 mb-2">{adherenceStats.followed.count} trades</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Win Rate</p>
-                <p className="text-sm font-semibold text-slate-900">{adherenceStats.followed.winRate}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Avg R</p>
-                <p className={cn("text-sm font-semibold", adherenceStats.followed.avgR > 0 ? "text-green-600" : "")}>
-                  {adherenceStats.followed.avgR > 0 ? '+' : ''}{adherenceStats.followed.avgR}R
-                </p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm font-medium text-slate-900 mb-1">Rules Broken</p>
-                <p className="text-xs text-slate-500 mb-2">{adherenceStats.broken.count} trades</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Win Rate</p>
-                <p className="text-sm font-semibold text-slate-900">{adherenceStats.broken.winRate}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Avg R</p>
-                <p className={cn("text-sm font-semibold", adherenceStats.broken.avgR > 0 ? "text-green-600" : adherenceStats.broken.avgR < 0 ? "text-red-600" : "")}>
-                  {adherenceStats.broken.avgR > 0 ? '+' : ''}{adherenceStats.broken.avgR}R
-                </p>
-              </div>
-            </div>
-            
-            {adherenceStats.followed.count > 0 && adherenceStats.broken.count > 0 && (
-              <div className="bg-slate-50 p-3 rounded-lg text-sm text-slate-600">
-                <strong>Historical observation:</strong> Your rule-followed trades have historically produced {adherenceStats.followed.avgR > adherenceStats.broken.avgR ? 'higher' : 'different'} Avg R than rule-broken trades.
+            {filteredTrades.length > 10 && (
+              <div className="text-center pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsJournalSelectorOpen(true)}
+                  className="text-xs"
+                >
+                  View All {filteredTrades.length} Trades in Journal Selector
+                </Button>
               </div>
             )}
           </div>
-        </Card>
+        </section>
+      )}
 
-        {/* After a Loss */}
-        <Card className="p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <Clock className="w-5 h-5 text-slate-600" />
-            <h3 className="font-semibold text-slate-900">What Happens After a Loss?</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div>
-                <p className="text-sm font-medium text-slate-900">Immediate Re-entry (&lt;15m)</p>
-                <p className="text-xs text-slate-500">{afterLossStats.immediate.count} trades</p>
-              </div>
-              <div className="text-right">
-                <p className={cn("text-sm font-semibold", afterLossStats.immediate.avgR > 0 ? "text-green-600" : afterLossStats.immediate.avgR < 0 ? "text-red-600" : "text-slate-900")}>
-                  {afterLossStats.immediate.avgR > 0 ? '+' : ''}{afterLossStats.immediate.avgR}R
-                </p>
-              </div>
-            </div>
+      {/* 3. EMOTION → BEHAVIOR → PERFORMANCE TABLE */}
+      {(activeSection === 'all' || activeSection === 'matrix') && (
+        <section className="space-y-4">
+          <PsychologyMatrix emotionStats={emotionStats} />
+        </section>
+      )}
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div>
-                <p className="text-sm font-medium text-slate-900">Waited 15-60 min</p>
-                <p className="text-xs text-slate-500">{afterLossStats.shortWait.count} trades</p>
-              </div>
-              <div className="text-right">
-                <p className={cn("text-sm font-semibold", afterLossStats.shortWait.avgR > 0 ? "text-green-600" : afterLossStats.shortWait.avgR < 0 ? "text-red-600" : "text-slate-900")}>
-                  {afterLossStats.shortWait.avgR > 0 ? '+' : ''}{afterLossStats.shortWait.avgR}R
-                </p>
-              </div>
-            </div>
+      {/* 4. BEHAVIORAL PATTERN DETECTION */}
+      {(activeSection === 'all' || activeSection === 'patterns') && (
+        <section className="space-y-4">
+          <PsychologyPatterns
+            patterns={behavioralPatterns}
+            onSelectEvidenceTrade={(evTrade) => setSelectedTradeForDetail(evTrade)}
+          />
+        </section>
+      )}
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
-              <div>
-                <p className="text-sm font-medium text-slate-900">Waited &gt;60 min</p>
-                <p className="text-xs text-slate-500">{afterLossStats.longWait.count} trades</p>
-              </div>
-              <div className="text-right">
-                <p className={cn("text-sm font-semibold", afterLossStats.longWait.avgR > 0 ? "text-green-600" : afterLossStats.longWait.avgR < 0 ? "text-red-600" : "text-slate-900")}>
-                  {afterLossStats.longWait.avgR > 0 ? '+' : ''}{afterLossStats.longWait.avgR}R
-                </p>
-              </div>
-            </div>
-            
-            {(afterLossStats.immediate.count + afterLossStats.shortWait.count + afterLossStats.longWait.count) < 5 && (
-              <p className="text-xs text-slate-500 mt-2">Small sample size. More data needed to form a conclusion.</p>
-            )}
-          </div>
-        </Card>
-      </div>
+      {/* 5. STRATEGY & SESSION INTERSECTIONS */}
+      {(activeSection === 'all' || activeSection === 'context') && (
+        <section className="space-y-4">
+          <PsychologyBreakdowns
+            strategyStats={strategyStats}
+            sessionStats={sessionStats}
+          />
+        </section>
+      )}
 
-      {/* DISCLAIMER */}
-      <div className="pt-8 border-t border-slate-200">
-        <p className="text-xs text-slate-400 text-center max-w-3xl mx-auto">
-          TradeVault Psychology provides behavioral observations based on your journal data. It does not diagnose mental health conditions, predict future performance, or guarantee trading outcomes. Historical patterns are observational and should be tested with additional data.
-        </p>
-      </div>
+      {/* MODAL 1: ADD TRADE MODAL */}
+      <AddTradeModal
+        isOpen={isAddTradeOpen}
+        onClose={() => setIsAddTradeOpen(false)}
+        onTradeCreated={handleTradeCreated}
+      />
 
+      {/* MODAL 2: JOURNAL SELECTOR */}
+      <PsychologyJournalSelector
+        isOpen={isJournalSelectorOpen}
+        onClose={() => setIsJournalSelectorOpen(false)}
+        trades={trades}
+        strategies={strategies}
+        onSelectTrade={(trade) => setSelectedTradeForDetail(trade)}
+      />
+
+      {/* MODAL 3: PSYCHOLOGY DETAIL FOR EXISTING TRADE */}
+      <PsychologyDetailModal
+        trade={selectedTradeForDetail}
+        previousTrade={previousTradeForSelected}
+        strategies={strategies}
+        isOpen={Boolean(selectedTradeForDetail)}
+        onClose={() => setSelectedTradeForDetail(null)}
+        onUpdateTrade={async (id, updates) => {
+          await updateTrade(id, updates);
+        }}
+      />
     </div>
   );
 }

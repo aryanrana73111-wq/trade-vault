@@ -44,15 +44,53 @@ export interface Trade {
   rrRatio?: number; // Risk:Reward ratio calculated at entry
   rMultiple?: number; // Realized R multiple
   
-  // Psychology additions
+  // Psychology additions & detailed behavioral tracking
   ruleAdherence?: number; // percentage 0-100
   checklistState?: Record<string, boolean>;
+
+  // Before Trade
+  confidence?: number; // 1-10 scale
+  setupQuality?: 'A+' | 'A' | 'B' | 'C' | string;
+  entryReason?: string;
+
+  // During Trade
+  duringEmotions?: Emotion[];
+  duringEmotionalState?: string;
+  riskChanged?: boolean;
+  riskChangeNotes?: string;
+  isReentry?: boolean;
+  reentryReason?: string;
+  positionManagement?: string; // e.g. 'Moved SL to BE', 'Scaled Out', 'Let Run', 'Held to TP/SL'
+
+  // After Trade
+  exitEmotion?: Emotion;
+  whatToRepeat?: string;
+  whatToAvoid?: string;
+}
+
+export type TradingStyle = 'Scalping' | 'Day Trading' | 'Swing Trading' | 'Position Trading' | 'Other';
+
+export interface UserProfile {
+  uid: string;
+  fullName: string;
+  email: string;
+  tradingStyle: TradingStyle | string;
+  tradingExperience?: string;
+  preferredMarkets?: string;
+  preferredTradingSession?: string;
+  defaultAccountType?: string;
+  bio?: string;
+  avatarUrl?: string;
+  onboardingCompleted: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface User {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string;
 }
 
 export interface StrategyRule {
@@ -107,3 +145,166 @@ export interface Strategy {
   updatedAt: number;
   versions?: StrategyVersion[];
 }
+
+// Risk & Position Sizing Calculator Types
+export type AssetClass = 'FOREX' | 'METALS' | 'CRYPTO' | 'CUSTOM';
+export type ContractType = 'Spot' | 'CFD' | 'Futures' | 'Perpetual';
+
+export interface InstrumentSpecification {
+  symbol: string;
+  name: string;
+  assetClass: AssetClass;
+  contractSize: number; // e.g. 100,000 for standard forex, 100 for XAU/USD, 1 for crypto spot
+  pipSize: number; // e.g. 0.0001 for EUR/USD, 0.01 for USD/JPY, 0.01 for Gold, 1 for BTC
+  baseCurrency: string;
+  quoteCurrency: string;
+  unitName: string; // 'lots', 'oz', 'BTC', 'contracts', 'units'
+  contractType: ContractType;
+  minPositionSize: number; // e.g. 0.01
+  positionStep: number; // e.g. 0.01
+  maxPositionSize?: number;
+  isCustom?: boolean;
+  notes?: string;
+}
+
+export interface CalculatorInput {
+  accountBalance: number;
+  accountCurrency: string;
+  riskPercent: number;
+  riskAmount: number;
+  riskMode: 'percent' | 'amount';
+  symbol: string;
+  direction: Direction;
+  entry: number;
+  stopLoss: number;
+  takeProfit?: number;
+  leverage?: number;
+  quoteToAccountRate?: number; // Rate to convert quote currency to account currency if different
+  specification: InstrumentSpecification;
+}
+
+export interface CalculationStep {
+  label: string;
+  formula: string;
+  detail: string;
+}
+
+export interface CalculatorResult {
+  isValid: boolean;
+  validationError?: string;
+  directionWarning?: string;
+  riskWarning?: string;
+  positionSize: number;
+  roundedPositionSize: number;
+  unitLabel: string;
+  equivalentUnits?: number;
+  equivalentUnitsLabel?: string;
+  stopLossDistance: number;
+  stopLossPipsOrTicks: number;
+  estimatedLoss: number;
+  actualRiskPercent: number;
+  takeProfitDistance?: number;
+  takeProfitPipsOrTicks?: number;
+  potentialProfit?: number;
+  riskRewardRatio?: number;
+  notionalValue?: number;
+  estimatedMargin?: number;
+  marginCalculable: boolean;
+  marginNote?: string;
+  conversionNote?: string;
+  steps: CalculationStep[];
+}
+
+export interface CalculatorHistoryItem {
+  id: string;
+  timestamp: number;
+  instrument: string;
+  assetClass: AssetClass;
+  direction: Direction;
+  accountBalance: number;
+  currency: string;
+  riskPercent: number;
+  riskAmount: number;
+  entry: number;
+  stopLoss: number;
+  takeProfit?: number;
+  positionSize: number;
+  unitLabel: string;
+  units?: number;
+  contractSize: number;
+  riskRewardRatio?: number;
+  estimatedLoss: number;
+  potentialProfit?: number;
+  notionalValue?: number;
+  createdAt: number;
+}
+
+// Learning & Rules Types
+export type LearningCategory = 
+  | 'Risk Management'
+  | 'Strategy'
+  | 'Psychology'
+  | 'Execution'
+  | 'Market Structure'
+  | 'Technical Analysis'
+  | 'Fundamental'
+  | 'Mistake'
+  | 'General';
+
+export interface LearningEntry {
+  id: string;
+  userId: string;
+  dashboardId: string;
+  date: number; // timestamp
+  dateString: string; // YYYY-MM-DD
+  content: string;
+  category: LearningCategory;
+  tags: string[];
+  relatedTradeId?: string;
+  relatedTradeSnapshot?: {
+    market: string;
+    direction: Direction;
+    date: number;
+    pnl?: number;
+    result?: Result;
+  };
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type RuleCategory = 
+  | 'Risk Management'
+  | 'Strategy'
+  | 'Execution'
+  | 'Psychology'
+  | 'Market'
+  | 'General';
+
+export type RulePriority = 'Critical' | 'Important' | 'Optional';
+export type RuleStatus = 'Active' | 'Paused';
+
+export interface RuleVersion {
+  version: number;
+  text: string;
+  category: RuleCategory;
+  priority: RulePriority;
+  updatedAt: number;
+  note?: string;
+}
+
+export interface TradingRule {
+  id: string;
+  userId: string;
+  dashboardId: string;
+  text: string;
+  category: RuleCategory;
+  priority: RulePriority;
+  status: RuleStatus;
+  isPinned: boolean;
+  order: number;
+  version?: number;
+  createdAt: number;
+  updatedAt: number;
+  versions?: RuleVersion[];
+}
+

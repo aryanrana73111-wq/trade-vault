@@ -20,8 +20,8 @@ export default function Strategies() {
   const [sortOption, setSortOption] = useState<'Name' | 'Most Trades' | 'Win Rate' | 'Net P&L' | 'Expectancy' | 'Recently Updated'>('Recently Updated');
 
   useEffect(() => {
-    setStrategies([...rawStrategies]);
-    setTrades([...rawTrades]);
+    setStrategies(Array.from(new Map(rawStrategies.map(s => [s.id, s])).values()));
+    setTrades(Array.from(new Map(rawTrades.map(t => [t.id, t])).values()));
   }, [rawStrategies, rawTrades]);
 
   const handleUpdateStatus = async (id: string, newStatus: 'Active' | 'Archived') => {

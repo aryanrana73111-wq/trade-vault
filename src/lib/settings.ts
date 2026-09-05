@@ -156,7 +156,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     density: 'comfortable',
   },
   dashboard: {
-    widgets: ['Total P&L', 'Win Rate', 'Total Trades', 'Profit Factor', 'Expectancy', 'Average R', 'Equity Curve', 'Recent Trades', 'Psychology Score', 'Risk Overview'],
+    widgets: ['Total P&L', 'Win Rate', 'Total Trades', 'Profit Factor', 'Expectancy', 'Average R', 'Equity Curve', 'Recent Trades', 'Trading Calendar', 'Psychology Score', 'Risk Overview'],
   },
   notifications: {
     riskLimit: true,

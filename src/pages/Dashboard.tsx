@@ -1,16 +1,22 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getSettings } from '@/lib/settings';
 import { Trade } from '@/types';
 import { Card } from '@/components/ui/Input';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatCurrency, formatNumber, dedupById } from '@/lib/utils';
 import { calculateKPIs } from '@/lib/calculations';
 import { format } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, Activity, Target, TrendingUp, DollarSign, Crosshair, TrendingDown, Scale } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Target, TrendingUp, DollarSign, Crosshair, TrendingDown, Scale, BookOpenCheck, Shield, Pin, Plus, Calendar, ArrowRight, Compass } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { UserAvatar } from '@/components/UserAvatar';
+import { TradingCalendarWidget } from '@/components/dashboard/TradingCalendarWidget';
 
 export default function Dashboard() {
-  const { trades: rawTrades } = useData();
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const { trades: rawTrades, learnings, rules } = useData();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [settings, setSettings] = useState(getSettings());
 
@@ -23,12 +29,24 @@ export default function Dashboard() {
   }, [rawTrades]);
 
   const kpis = calculateKPIs(trades);
-  const w = settings.dashboard.widgets;
-  const showWidget = (name: string) => w.includes(name);
+  const w = settings.dashboard.widgets || [];
+  const showWidget = (name: string) => {
+    if (name === 'Trading Calendar') {
+      if (w.includes('Trading Calendar')) return true;
+      // If user has old defaults saved before Trading Calendar was introduced
+      const isLegacyConfig = w.length >= 7 && w.includes('Equity Curve') && w.includes('Total P&L');
+      if (isLegacyConfig) return true;
+    }
+    return w.includes(name);
+  };
 
-  // Equity Curve Data
+  // Equity Curve Data (chronological order)
   let runningEquity = 0;
-  const equityData = trades.filter(t => t.result && t.result !== 'PENDING').map(t => {
+  const sortedClosedTrades = [...trades]
+    .filter(t => t.result && t.result !== 'PENDING')
+    .sort((a, b) => a.date - b.date);
+
+  const equityData = sortedClosedTrades.map(t => {
     runningEquity += (t.pnl || 0);
     return {
       name: format(new Date(t.date), 'MMM dd'),
@@ -39,11 +57,44 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Welcome back. Here is your trading performance.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-3.5 sm:gap-4">
+          <button
+            onClick={() => navigate('/settings?tab=profile')}
+            className="group relative rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            title="Edit Profile Settings"
+          >
+            <UserAvatar 
+              avatarUrl={profile?.avatarUrl} 
+              size="lg" 
+              className="border border-slate-200 shadow-sm group-hover:scale-105 transition-transform"
+            />
+          </button>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                {profile?.fullName || user?.displayName || 'Dashboard'}
+              </h1>
+              {profile?.tradingStyle && (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold uppercase tracking-wider">
+                  {profile.tradingStyle}
+                </span>
+              )}
+            </div>
+            <p className="text-slate-500 text-sm mt-0.5">
+              Welcome back. Here is your active trading performance overview.
+            </p>
+          </div>
         </div>
+
+        <button
+          onClick={() => navigate('/command-center')}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-semibold shadow-xs transition-colors cursor-pointer self-start sm:self-center"
+        >
+          <Compass className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <span>Trading Command Center</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* KPI Stats Row 1 */}
@@ -75,9 +126,9 @@ export default function Dashboard() {
         {showWidget('Profit Factor') && (
           <StatCard 
             title="Profit Factor" 
-            value={kpis.profitFactor === Infinity ? '∞' : (kpis.profitFactor ? formatNumber(kpis.profitFactor, 2) : '--')}
+            value={kpis.closedTradesCount === 0 ? '--' : (kpis.isAllWins ? 'Max (All Wins)' : (kpis.profitFactor > 0 ? formatNumber(kpis.profitFactor, 2) : '0.00'))}
             icon={<TrendingUp className="w-5 h-5 text-blue-600" />}
-            trend={kpis.profitFactor >= 1 ? 'up' : (kpis.profitFactor > 0 ? 'down' : 'neutral')}
+            trend={kpis.closedTradesCount === 0 ? 'neutral' : (kpis.profitFactor >= 1 ? 'up' : 'down')}
           />
         )}
       </div>
@@ -174,7 +225,7 @@ export default function Dashboard() {
             <h2 className="text-lg font-semibold text-slate-900">Recent Trades</h2>
           </div>
           <div className="space-y-4">
-            {trades.slice(-5).reverse().map(trade => (
+            {dedupById(trades).slice(-5).reverse().map(trade => (
               <div key={trade.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100 transition-colors">
                 <div>
                   <div className="flex items-center gap-2">
@@ -197,6 +248,136 @@ export default function Dashboard() {
         </Card>
         )}
       </div>
+
+      {/* Trading Calendar View */}
+      {showWidget('Trading Calendar') && (
+        <TradingCalendarWidget trades={trades} />
+      )}
+
+      {/* Secondary Insights & Rules Grid */}
+      {(showWidget('Today Learning') || showWidget('My Rules')) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Today Learning Widget */}
+          {showWidget('Today Learning') && (
+            <Card className="p-6 shadow-sm border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BookOpenCheck className="w-5 h-5 text-blue-600" />
+                  <h2 className="text-lg font-semibold text-slate-900">Today's Learning</h2>
+                </div>
+                <button
+                  onClick={() => navigate('/learning-rules?tab=learning')}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  View All <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {(() => {
+                const todayStr = format(new Date(), 'yyyy-MM-dd');
+                const todayLearnings = learnings.filter(l => l.dateString === todayStr);
+                const latestLearning = learnings[0];
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 border border-blue-100">
+                      <span className="text-xs font-medium text-slate-600">Today's Insights Logged</span>
+                      <span className="text-sm font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
+                        {todayLearnings.length}
+                      </span>
+                    </div>
+
+                    {latestLearning ? (
+                      <div className="p-3 rounded-lg border border-slate-100 bg-slate-50 text-xs">
+                        <div className="flex items-center justify-between text-slate-400 mb-1 text-[11px]">
+                          <span className="font-semibold text-slate-700">{latestLearning.category}</span>
+                          <span>{latestLearning.dateString || format(new Date(latestLearning.date || latestLearning.createdAt), 'MMM dd')}</span>
+                        </div>
+                        <p className="text-slate-800 line-clamp-2 leading-relaxed">
+                          {latestLearning.content}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 text-center py-2">
+                        No learning entry recorded yet today.
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => navigate('/learning-rules?tab=learning')}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Record Daily Learning
+                    </button>
+                  </div>
+                );
+              })()}
+            </Card>
+          )}
+
+          {/* My Rules Widget */}
+          {showWidget('My Rules') && (
+            <Card className="p-6 shadow-sm border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-amber-600" />
+                  <h2 className="text-lg font-semibold text-slate-900">Discipline Rules</h2>
+                </div>
+                <button
+                  onClick={() => navigate('/learning-rules?tab=rules')}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  View Rules <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {(() => {
+                const uniqueRules = dedupById(rules);
+                const activeRules = uniqueRules.filter(r => r.status === 'Active');
+                const pinnedRules = uniqueRules.filter(r => r.isPinned);
+                const displayRules = pinnedRules.length > 0 ? pinnedRules : activeRules;
+
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                        <span className="text-slate-400 block text-[11px]">Active</span>
+                        <span className="text-base font-bold text-slate-900">{activeRules.length}</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-amber-50/60 border border-amber-100">
+                        <span className="text-amber-700 block text-[11px] font-medium">Pinned</span>
+                        <span className="text-base font-bold text-amber-900">{pinnedRules.length}</span>
+                      </div>
+                    </div>
+
+                    {displayRules.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {displayRules.slice(0, 3).map(r => (
+                          <div key={r.id} className="p-2 rounded border border-slate-100 bg-slate-50 flex items-start gap-2 text-xs">
+                            {r.isPinned && <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500 mt-0.5 flex-shrink-0" />}
+                            <p className="text-slate-800 line-clamp-1 flex-1 font-medium">{r.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 text-center py-2">
+                        No trading rules created yet.
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => navigate('/learning-rules?tab=rules')}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Manage Trading Rules
+                    </button>
+                  </div>
+                );
+              })()}
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }

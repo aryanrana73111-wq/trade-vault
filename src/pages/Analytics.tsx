@@ -486,9 +486,9 @@ export default function Analytics() {
               />
               <StatCard 
                 title="Profit Factor" 
-                value={kpis.profitFactor === Infinity ? '∞' : (kpis.profitFactor ? formatNumber(kpis.profitFactor, 2) : '--')}
+                value={kpis.closedTradesCount === 0 ? '--' : (kpis.isAllWins ? 'Max (All Wins)' : (kpis.profitFactor > 0 ? formatNumber(kpis.profitFactor, 2) : '0.00'))}
                 icon={<TrendingUp className="w-5 h-5 text-blue-600" />}
-                trend={kpis.profitFactor >= 1 ? 'up' : (kpis.profitFactor > 0 ? 'down' : 'neutral')}
+                trend={kpis.closedTradesCount === 0 ? 'neutral' : (kpis.profitFactor >= 1 ? 'up' : 'down')}
               />
             </div>
 

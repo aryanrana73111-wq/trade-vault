@@ -64,12 +64,103 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["id", "name"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Extended user profile and trading preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "tradingStyle": { "type": "string" },
+        "tradingExperience": { "type": "string" },
+        "preferredMarkets": { "type": "string" },
+        "preferredTradingSession": { "type": "string" },
+        "defaultAccountType": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "onboardingCompleted": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "fullName", "email"]
+    },
+    "CalculatorHistory": {
+      "title": "CalculatorHistory",
+      "description": "Saved risk and position sizing calculations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "instrument": { "type": "string" },
+        "assetClass": { "type": "string" },
+        "direction": { "type": "string", "enum": ["BUY", "SELL"] },
+        "accountBalance": { "type": "number" },
+        "currency": { "type": "string" },
+        "riskPercent": { "type": "number" },
+        "riskAmount": { "type": "number" },
+        "entry": { "type": "number" },
+        "stopLoss": { "type": "number" },
+        "takeProfit": { "type": "number" },
+        "positionSize": { "type": "number" },
+        "units": { "type": "number" },
+        "contractSize": { "type": "number" },
+        "riskRewardRatio": { "type": "number" },
+        "estimatedLoss": { "type": "number" },
+        "potentialProfit": { "type": "number" },
+        "notionalValue": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "timestamp", "instrument", "direction", "entry", "stopLoss", "positionSize", "riskAmount"]
+    },
+    "LearningEntry": {
+      "title": "LearningEntry",
+      "description": "Trader daily learning, insights and mistake analysis",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "dashboardId": { "type": "string" },
+        "date": { "type": "number" },
+        "dateString": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "relatedTradeId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "dashboardId", "date", "content", "category"]
+    },
+    "TradingRule": {
+      "title": "TradingRule",
+      "description": "Trading rules and discipline guidelines",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "dashboardId": { "type": "string" },
+        "text": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Critical", "Important", "Optional"] },
+        "status": { "type": "string", "enum": ["Active", "Paused"] },
+        "isPinned": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "dashboardId", "text", "category", "priority", "status"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
       "description": "User profiles"
+    },
+    "/users/{userId}/profile/{profileId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile details and preferences"
     },
     "/users/{userId}/dashboards/{dashboardId}": {
       "schema": { "$ref": "#/entities/Dashboard" },
@@ -82,6 +173,18 @@
     "/users/{userId}/dashboards/{dashboardId}/strategies/{strategyId}": {
       "schema": { "$ref": "#/entities/Strategy" },
       "description": "Strategies belonging to a dashboard"
+    },
+    "/users/{userId}/dashboards/{dashboardId}/calculatorHistory/{historyId}": {
+      "schema": { "$ref": "#/entities/CalculatorHistory" },
+      "description": "Saved risk calculations for a dashboard"
+    },
+    "/users/{userId}/dashboards/{dashboardId}/learnings/{learningId}": {
+      "schema": { "$ref": "#/entities/LearningEntry" },
+      "description": "Trader daily learning and reflections"
+    },
+    "/users/{userId}/dashboards/{dashboardId}/rules/{ruleId}": {
+      "schema": { "$ref": "#/entities/TradingRule" },
+      "description": "Trading rules and discipline checklist"
     }
   }
 }
