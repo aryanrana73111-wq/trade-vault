@@ -156,7 +156,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     density: 'comfortable',
   },
   dashboard: {
-    widgets: ['Total P&L', 'Win Rate', 'Total Trades', 'Profit Factor', 'Expectancy', 'Average R', 'Equity Curve', 'Recent Trades', 'Trading Calendar', 'Psychology Score', 'Risk Overview'],
+    widgets: ['Total P&L', 'Win Rate', 'Total Trades', 'Profit Factor', 'Expectancy', 'Average R', 'Maximum Drawdown', 'Equity Curve', 'Recent Trades', 'High Impact News', 'Trading Calendar', 'Psychology Score', 'Risk Overview'],
   },
   notifications: {
     riskLimit: true,
@@ -208,8 +208,10 @@ export function getSettings(): UserSettings {
 
 export function saveSettings(settings: UserSettings) {
   localStorage.setItem('tradevault_settings', JSON.stringify(settings));
-  // Dispatch event for components to listen
-  window.dispatchEvent(new Event('tradevault_settings_updated'));
+  // Dispatch event asynchronously so listeners do not update state synchronously during any active component render phase
+  queueMicrotask(() => {
+    window.dispatchEvent(new Event('tradevault_settings_updated'));
+  });
 }
 
 export function getActiveAccount(settings = getSettings()) {

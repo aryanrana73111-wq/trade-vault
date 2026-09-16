@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
+import ArenaPage from '@/pages/Arena';
 import AddTrade from '@/pages/AddTrade';
 import Journal from '@/pages/Journal';
 import Analytics from '@/pages/Analytics';
@@ -13,6 +14,8 @@ import Psychology from '@/pages/Psychology';
 import RiskCalculator from '@/pages/RiskCalculator';
 import LearningRules from '@/pages/LearningRules';
 import AILabs from '@/pages/AILabs';
+import { Academy } from '@/pages/Academy';
+import { NewsIntelligence } from '@/pages/NewsIntelligence';
 import { CommandCenter } from '@/pages/CommandCenter';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
@@ -50,6 +53,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="command-center" element={<CommandCenter />} />
+        <Route path="arena" element={<ArenaPage />} />
         <Route path="add" element={<AddTrade />} />
         <Route path="calculator" element={<RiskCalculator />} />
         <Route path="journal" element={<Journal />} />
@@ -58,11 +62,16 @@ export default function App() {
         <Route path="strategies/create" element={<CreateStrategy />} />
         <Route path="strategies/:id" element={<StrategyDetail />} />
         <Route path="psychology" element={<Psychology />} />
+        <Route path="academy" element={<Academy />} />
+        <Route path="education" element={<Navigate to="/academy" replace />} />
         <Route path="ai-labs" element={<AILabs />} />
         <Route path="labs" element={<Navigate to="/ai-labs" replace />} />
         <Route path="learning-rules" element={<LearningRules />} />
         <Route path="learning" element={<Navigate to="/learning-rules?tab=learning" replace />} />
         <Route path="rules" element={<Navigate to="/learning-rules?tab=rules" replace />} />
+        <Route path="news" element={<NewsIntelligence />} />
+        <Route path="news-intelligence" element={<Navigate to="/news" replace />} />
+        <Route path="economic-calendar" element={<Navigate to="/news?tab=calendar" replace />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

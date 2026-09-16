@@ -16,6 +16,19 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+
+    match /arenas/{arenaId} {
+      allow read, write: if isSignedIn();
+      
+      match /{document=**} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    match /test/{docId} {
+      allow read: if true;
+    }
+
     match /users/{userId} {
       allow read, write: if isOwner(userId);
 

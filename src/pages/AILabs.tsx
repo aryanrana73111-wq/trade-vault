@@ -12,7 +12,8 @@ import {
   RefreshCw,
   HelpCircle,
   Eye,
-  Info
+  Info,
+  BookOpen
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { Trade } from '@/types';
@@ -31,6 +32,8 @@ import { ExperimentTrackerTab } from '@/components/aiLabs/ExperimentTrackerTab';
 import { AIAlertsTab } from '@/components/aiLabs/AIAlertsTab';
 import { DataQualityTab } from '@/components/aiLabs/DataQualityTab';
 import { AIControlsPrivacyTab } from '@/components/aiLabs/AIControlsPrivacyTab';
+import { QuantLabTab } from '@/components/aiLabs/QuantLabTab';
+import { ResearchNotebookTab } from '@/components/aiLabs/ResearchNotebookTab';
 import { EvidenceDrawer } from '@/components/aiLabs/EvidenceDrawer';
 import { ShowMeWhyModal } from '@/components/aiLabs/ShowMeWhyModal';
 import { generateAIAlerts } from '@/lib/aiLabs/engine';
@@ -42,7 +45,7 @@ export const AILabs: React.FC = () => {
   // Active Tab
   const tabParam = searchParams.get('tab') as AILabsTab;
   const activeTab: AILabsTab = [
-    'analyst', 'patterns', 'hypothesis', 'scenarios', 'experiments', 'alerts', 'quality', 'controls'
+    'analyst', 'patterns', 'quant', 'hypothesis', 'scenarios', 'experiments', 'alerts', 'quality', 'controls'
   ].includes(tabParam) ? tabParam : 'analyst';
 
   const setActiveTab = (tab: AILabsTab) => {
@@ -149,8 +152,10 @@ export const AILabs: React.FC = () => {
   const activeAlertsCount = allAlerts.filter(a => !dismissedAlerts.includes(a.id)).length;
 
   const TABS: { id: AILabsTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }[] = [
+    { id: 'notebook', label: 'Research Notebook', icon: BookOpen },
     { id: 'analyst', label: 'AI Trading Analyst', icon: Sparkles },
     { id: 'patterns', label: 'Pattern Lab', icon: GitCompare },
+    { id: 'quant', label: 'Quant Research Lab', icon: Calculator },
     { id: 'hypothesis', label: 'Hypothesis Lab', icon: Lightbulb },
     { id: 'scenarios', label: 'Scenario Lab', icon: Calculator },
     { id: 'experiments', label: 'Experiment Tracker', icon: FlaskConical },
@@ -226,6 +231,10 @@ export const AILabs: React.FC = () => {
 
       {/* Tab Panels */}
       <div>
+        {activeTab === 'notebook' && (
+          <ResearchNotebookTab trades={trades} />
+        )}
+
         {activeTab === 'analyst' && (
           <AITradingAnalystTab
             trades={trades}
@@ -248,6 +257,10 @@ export const AILabs: React.FC = () => {
             onOpenEvidence={handleOpenEvidence}
             onOpenShowMeWhy={handleOpenShowMeWhy}
           />
+        )}
+
+        {activeTab === 'quant' && (
+          <QuantLabTab trades={trades} />
         )}
 
         {activeTab === 'hypothesis' && (

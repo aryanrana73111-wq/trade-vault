@@ -8,8 +8,13 @@ import { Trade, Market, Direction, Session, Emotion, Timeframe, MarketCondition,
 import { cn, formatCurrency } from '@/lib/utils';
 import { calculateTradeMetrics } from '@/lib/calculations';
 import { compressImageToDataUrl } from '@/lib/avatarStorage';
-import { UploadCloud, CheckCircle2, X, AlertTriangle } from 'lucide-react';
+import { UploadCloud, CheckCircle2, X, AlertTriangle, GraduationCap, Newspaper, Swords, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
+import { NEWS_EVENTS } from '@/data/newsIntelligenceData';
+import { useArena } from '@/contexts/ArenaContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { addCompetitionTrade } from '@/lib/arenaService';
+import { MarketSelector } from '@/components/common/MarketSelector';
 
 export interface AddTradeProps {
   onSuccess?: (savedTrade: Trade) => void;
@@ -40,12 +45,33 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
       timeframe: (s.entryPreferences.timeframe || '') as Timeframe,
       marketCondition: '' as MarketCondition,
       emotions: [] as Emotion[],
+      setupQuality: undefined as 'A+' | 'B' | 'C' | undefined,
+      setupQualityReason: '',
       notes: '',
       mistake: '',
       learning: '',
       result: '' as 'WIN' | 'LOSS' | 'BREAK EVEN' | 'PENDING' | '',
       pnl: '',
       screenshot: '',
+      exitScreenshot: '',
+      newsEventId: '',
+      newsEventName: '',
+      newsImpact: '',
+      
+      thesis: {
+        marketThesis: '',
+        catalyst: '',
+        timeHorizon: '',
+        invalidation: ''
+      },
+      execution: {
+        plannedEntry: '',
+        plannedStop: '',
+        plannedTarget: '',
+        spread: '',
+        commission: '',
+        slippage: ''
+      }
     };
   });
 
@@ -53,7 +79,18 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
   const [showToast, setShowToast] = useState(false);
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({});
   const [prefilledFromCalculator, setPrefilledFromCalculator] = useState(false);
+  const [academySource, setAcademySource] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const location = useLocation();
+
+  const { user } = useAuth();
+  const { arenas } = useArena();
+  const [selectedCompetitionIds, setSelectedCompetitionIds] = useState<string[]>([]);
+
+  // Eligible active competitions
+  const activeCompetitions = useMemo(() => {
+    return arenas.filter(a => a.status === 'active' || (!a.status && (a as any).isLive !== false));
+  }, [arenas]);
 
   useEffect(() => {
     if (location.state?.prefill) {
@@ -68,8 +105,23 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         positionSize: p.positionSize !== undefined ? p.positionSize : prev.positionSize,
         risk: p.risk !== undefined ? p.risk : prev.risk,
         riskPercent: p.riskPercent !== undefined ? p.riskPercent : prev.riskPercent,
+        notes: p.notes !== undefined ? p.notes : prev.notes,
+        session: (p.session || prev.session) as Session,
       }));
       setPrefilledFromCalculator(true);
+    }
+    if (location.state?.newsPrefill) {
+      const np = location.state.newsPrefill;
+      setFormData(prev => ({
+        ...prev,
+        market: (np.currency ? (np.currency === 'USD' ? 'EUR/USD' : `${np.currency}/USD`) : prev.market) as Market,
+        newsEventId: np.id || '',
+        newsEventName: np.name || '',
+        newsImpact: np.impact || '',
+      }));
+    }
+    if (location.state?.academySource) {
+      setAcademySource(location.state.academySource);
     }
   }, [location.state]);
 
@@ -145,44 +197,50 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
   };
 
   const [isDraggingScreenshot, setIsDraggingScreenshot] = useState(false);
+  const [isDraggingExitScreenshot, setIsDraggingExitScreenshot] = useState(false);
 
-  const processImageFile = async (file: File) => {
+  const processImageFile = async (file: File, target: 'screenshot' | 'exitScreenshot' = 'screenshot') => {
     if (!file) return;
     try {
       const compressed = await compressImageToDataUrl(file, 1280, 960, 0.82);
-      setFormData(prev => ({ ...prev, screenshot: compressed }));
+      setFormData(prev => ({ ...prev, [target]: compressed }));
     } catch {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, screenshot: reader.result as string }));
+        setFormData(prev => ({ ...prev, [target]: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'screenshot' | 'exitScreenshot' = 'screenshot') => {
     const file = e.target.files?.[0];
     if (file) {
-      await processImageFile(file);
+      await processImageFile(file, target);
     }
     e.target.value = '';
   };
 
-  const handleScreenshotDrop = async (e: React.DragEvent) => {
+  const handleScreenshotDrop = async (e: React.DragEvent, target: 'screenshot' | 'exitScreenshot' = 'screenshot') => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingScreenshot(false);
+    if (target === 'exitScreenshot') {
+      setIsDraggingExitScreenshot(false);
+    } else {
+      setIsDraggingScreenshot(false);
+    }
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      await processImageFile(file);
+      await processImageFile(file, target);
     }
   };
 
-  const handleRemoveScreenshot = () => {
-    setFormData(prev => ({ ...prev, screenshot: '' }));
+  const handleRemoveScreenshot = (target: 'screenshot' | 'exitScreenshot' = 'screenshot') => {
+    setFormData(prev => ({ ...prev, [target]: '' }));
   };
 
   // Allow pasting screenshot anywhere on the form (e.g. Snipping tool / clipboard)
+  // Pastes to Entry screenshot first if empty, else Exit screenshot if empty
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -191,7 +249,11 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         if (items[i].type.indexOf('image') !== -1) {
           const file = items[i].getAsFile();
           if (file) {
-            processImageFile(file);
+            setFormData(prev => {
+              const target = !prev.screenshot ? 'screenshot' : (!prev.exitScreenshot ? 'exitScreenshot' : 'screenshot');
+              processImageFile(file, target);
+              return prev;
+            });
             break;
           }
         }
@@ -204,6 +266,9 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
 
   const handleSubmit = async (e: React.FormEvent, addAnother = false) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     
     let finalPnl = undefined;
     if (formData.result === 'WIN' || formData.result === 'LOSS') {
@@ -246,22 +311,73 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
       timeframe: formData.timeframe,
       marketCondition: formData.marketCondition,
       emotions: formData.emotions,
+      setupQuality: formData.setupQuality,
+      setupQualityReason: formData.setupQualityReason,
       notes: formData.notes,
       mistake: formData.mistake,
       learning: formData.learning,
       screenshot: formData.screenshot,
+      entryScreenshot: formData.screenshot || undefined,
+      exitScreenshot: formData.exitScreenshot || undefined,
       result: formData.result ? formData.result as any : undefined,
       pnl: finalPnl,
       rrRatio: calc.rrRatio,
       rMultiple: finalPnl && parseFloat(formData.risk) > 0 ? finalPnl / parseFloat(formData.risk) : undefined,
       ruleAdherence,
       checklistState,
+      newsEventId: formData.newsEventId || undefined,
+      newsEventName: formData.newsEventName || undefined,
+      newsImpact: (formData.newsImpact as 'LOW' | 'MEDIUM' | 'HIGH') || undefined,
     };
 
     try {
       const savedTrade = await saveTrade(tradePayload);
       
+      // Link trade into any selected competitions without duplicating canonical record
+      if (selectedCompetitionIds.length > 0 && user && savedTrade) {
+        for (const compId of selectedCompetitionIds) {
+          try {
+            const comp = arenas.find(a => a.id === compId);
+            const member = comp?.members?.[user.uid];
+            await addCompetitionTrade({
+              competitionId: compId,
+              userId: user.uid,
+              userDisplayName: member?.displayName || user.displayName || 'Trader',
+              userAvatar: member?.photoURL || user.photoURL || undefined,
+              trade: {
+                date: new Date(formData.time ? `${formData.date}T${formData.time}` : `${formData.date}T12:00`).getTime(),
+                time: formData.time,
+                market: formData.market,
+                direction: formData.direction,
+                entry: parseFloat(formData.entry) || 0,
+                exit: undefined,
+                stopLoss: parseFloat(formData.stopLoss) || 0,
+                takeProfit: parseFloat(formData.takeProfit) || 0,
+                positionSize: parseFloat(formData.positionSize) || 1,
+                riskAmount: parseFloat(formData.risk) || 0,
+                riskPercent: parseFloat(formData.riskPercent) || undefined,
+                result: (formData.result ? (formData.result as any) : undefined),
+                pnl: finalPnl,
+                rMultiple: finalPnl && parseFloat(formData.risk) > 0 ? Number((finalPnl / parseFloat(formData.risk)).toFixed(2)) : undefined,
+                strategy: formData.strategy || 'Discretionary',
+                session: formData.session,
+                timeframe: formData.timeframe,
+                screenshot: formData.screenshot || undefined,
+                sharedNotes: formData.notes,
+                ruleAdherence,
+                mistake: formData.mistake || undefined,
+                learning: formData.learning || undefined
+              },
+              addToPersonalJournal: false
+            });
+          } catch (syncErr) {
+            console.error('Failed to sync trade to competition ' + compId, syncErr);
+          }
+        }
+      }
+
       setShowToast(true);
+      setIsSubmitting(false);
       setTimeout(() => setShowToast(false), 3000);
 
       if (onSuccess && savedTrade) {
@@ -274,7 +390,8 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
           ...prev,
           date: format(new Date(), 'yyyy-MM-dd'),
           time: format(new Date(), 'HH:mm'),
-          entry: '', stopLoss: '', takeProfit: '', notes: '', mistake: '', learning: '', risk: '', riskPercent: '', positionSize: '', screenshot: '', result: '', pnl: ''
+          entry: '', stopLoss: '', takeProfit: '', notes: '', mistake: '', learning: '', risk: '', riskPercent: '', positionSize: '', screenshot: '', exitScreenshot: '', result: '', pnl: '',
+          setupQuality: undefined, setupQualityReason: ''
         }));
         setChecklistState({});
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -308,6 +425,28 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Add New Trade</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">Document your trade details thoroughly.</p>
+        </div>
+      )}
+
+      {academySource && (
+        <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 rounded-xl flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-100 animate-in fade-in duration-150 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <GraduationCap className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+            <div>
+              <span className="font-bold block">TradeVault Academy Execution Drill</span>
+              <span className="text-indigo-700 dark:text-indigo-300">
+                Drill context: {academySource} • Maintain strict invariant 1% risk and pre-planned technical invalidation.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAcademySource(null)}
+            className="p-1 rounded-md text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
+            title="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -354,24 +493,13 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         <Card className="p-8 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
-              <Label className="text-base">Market</Label>
-              <select
-                name="market"
+              <MarketSelector
                 value={formData.market}
-                onChange={handleInputChange}
+                onChange={(m) => setFormData(prev => ({ ...prev, market: m as any }))}
+                userId={user?.uid}
                 required
-                className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-              >
-                <option value="" disabled>Select a market...</option>
-                <option value="XAU/USD">Gold (XAU/USD)</option>
-                <option value="BTC/USD">Bitcoin (BTC/USD)</option>
-                <option value="ETH/USD">Ethereum (ETH/USD)</option>
-                <option value="SOL/USD">Solana (SOL/USD)</option>
-                <option value="XRP/USD">Ripple (XRP/USD)</option>
-                <option value="EUR/USD">EUR/USD</option>
-                <option value="GBP/USD">GBP/USD</option>
-                <option value="JPY/USD">JPY/USD</option>
-              </select>
+                label="Market"
+              />
             </div>
             
             <div className="space-y-3">
@@ -424,16 +552,12 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                 <Input name="stopLoss" type="number" step="any" placeholder="e.g. 2453.20" required value={formData.stopLoss} onChange={handleInputChange} />
               </div>
               <div className="space-y-2">
-                <Label>Risk Amount (USD)</Label>
-                <Input name="risk" type="number" step="any" placeholder="e.g. 250" icon={<span className="text-sm font-medium">$</span>} value={formData.risk} onChange={handleInputChange} />
-              </div>
-              <div className="space-y-2">
-                <Label>Risk %</Label>
-                <Input name="riskPercent" type="number" step="any" placeholder="e.g. 1.0" icon={<span className="text-sm font-medium">%</span>} value={formData.riskPercent} onChange={handleInputChange} />
-              </div>
-              <div className="space-y-2">
                 <Label>Take Profit</Label>
                 <Input name="takeProfit" type="number" step="any" placeholder="e.g. 2470.20" value={formData.takeProfit} onChange={handleInputChange} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Risk Amount (USD)</Label>
+                <Input name="risk" type="number" step="any" placeholder="e.g. 250" icon={<span className="text-sm font-medium">$</span>} value={formData.risk} onChange={handleInputChange} />
               </div>
             </div>
 
@@ -550,6 +674,111 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
               </div>
             )}
 
+            {/* Macro News Catalyst Link */}
+            <div className="space-y-2 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Newspaper className="w-3.5 h-3.5 text-blue-500" />
+                  Economic News Catalyst (Optional)
+                </Label>
+                {formData.newsEventName && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, newsEventId: '', newsEventName: '', newsImpact: '' }))}
+                    className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold"
+                  >
+                    Clear Link
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={formData.newsEventId}
+                onChange={(e) => {
+                  const evId = e.target.value;
+                  const selectedEv = NEWS_EVENTS.find(item => item.id === evId);
+                  if (selectedEv) {
+                    setFormData(prev => ({
+                      ...prev,
+                      newsEventId: selectedEv.id,
+                      newsEventName: selectedEv.name,
+                      newsImpact: selectedEv.impact
+                    }));
+                  } else {
+                    setFormData(prev => ({
+                      ...prev,
+                      newsEventId: '',
+                      newsEventName: '',
+                      newsImpact: ''
+                    }));
+                  }
+                }}
+                className="flex h-11 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200"
+              >
+                <option value="">No News Catalyst (Technical / Discretionary)</option>
+                {NEWS_EVENTS.map(ev => (
+                  <option key={ev.id} value={ev.id}>
+                    [{ev.impact}] {ev.currency} - {ev.name} ({ev.dateTime ? ev.dateTime.split('T')[0] : ''})
+                  </option>
+                ))}
+              </select>
+
+              {formData.newsEventName && (
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                  Trade will be linked to "{formData.newsEventName}" in News Intelligence & Behavioral Diagnostics.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <Label className="text-base font-semibold">SETUP QUALITY</Label>
+              <p className="text-xs text-slate-500 -mt-1">How would you rate this setup?</p>
+              <div className="flex flex-wrap gap-3">
+                {(['A+', 'B', 'C'] as const).map(quality => (
+                  <button
+                    key={quality}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, setupQuality: quality === prev.setupQuality ? undefined : quality }))}
+                    className={cn(
+                      "px-4 py-2 rounded-lg border font-bold transition-all flex items-center gap-2",
+                      formData.setupQuality === quality 
+                        ? (quality === 'A+' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : quality === 'B' ? 'border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400')
+                        : 'border-slate-200 dark:border-slate-800 bg-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    )}
+                  >
+                    <span>{quality === 'A+' ? '🟢' : quality === 'B' ? '🟡' : '🔴'}</span>
+                    <span>{quality}</span>
+                  </button>
+                ))}
+              </div>
+              {formData.setupQuality && (
+                <div className="space-y-3 mt-3">
+                  <p className={cn("text-xs font-medium", 
+                    formData.setupQuality === 'A+' ? 'text-emerald-600 dark:text-emerald-400' : 
+                    formData.setupQuality === 'B' ? 'text-amber-600 dark:text-amber-400' : 
+                    'text-rose-600 dark:text-rose-400'
+                  )}>
+                    {formData.setupQuality === 'A+' && "Highest-quality setup according to your rules."}
+                    {formData.setupQuality === 'B' && "Acceptable setup, but not your strongest setup."}
+                    {formData.setupQuality === 'C' && "Weak setup or significant deviation from your ideal setup."}
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Why did you rate this setup this way? (Optional)</Label>
+                    <Input 
+                      name="setupQualityReason"
+                      value={formData.setupQualityReason}
+                      onChange={handleInputChange}
+                      placeholder={
+                        formData.setupQuality === 'A+' ? "e.g., All strategy conditions aligned perfectly..." :
+                        formData.setupQuality === 'B' ? "e.g., Entry was valid but HTF confirmation was weak..." :
+                        "e.g., Entered late and missed the ideal entry..."
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-3 pt-2">
               <div className="flex justify-between items-end">
                 <Label className="text-base">Strategy / Trade Thesis</Label>
@@ -567,107 +796,180 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
             <div className="space-y-3">
               <Label className="text-base">Emotions</Label>
               <div className="flex flex-wrap gap-2 items-center">
-                {['Calm', 'FOMO', 'Revenge', 'Fear', 'Greed', 'Confident', 'Hesitant', 'Impatient'].map(emotion => (
+                {(['Confident', 'Unconfident'] as const).map(emotion => (
                   <button
                     key={emotion}
                     type="button"
                     onClick={() => toggleEmotion(emotion)}
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                      "px-4 py-2 rounded-lg text-sm font-medium border transition-colors",
                       formData.emotions.includes(emotion)
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        ? (emotion === 'Confident'
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700 shadow-xs'
+                            : 'border-rose-600 bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700 shadow-xs')
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60'
                     )}
                   >
                     {emotion}
                   </button>
                 ))}
-                
-                {formData.emotions.filter(e => !['Calm', 'FOMO', 'Revenge', 'Fear', 'Greed', 'Confident', 'Hesitant', 'Impatient'].includes(e)).map(e => (
-                   <button
-                   key={e}
-                   type="button"
-                   onClick={() => toggleEmotion(e)}
-                   className="px-3 py-1.5 rounded-full text-sm font-medium border border-indigo-600 bg-indigo-50 text-indigo-700 flex items-center gap-1"
-                 >
-                   {e} <X className="w-3 h-3" />
-                 </button>
-                ))}
-
-                <div className="relative">
-                  <Input 
-                    type="text" 
-                    placeholder="Other (press enter)" 
-                    className="h-8 text-sm w-40 rounded-full"
-                    value={otherEmotion}
-                    onChange={(e) => setOtherEmotion(e.target.value)}
-                    onKeyDown={handleAddOtherEmotion}
-                  />
-                </div>
               </div>
             </div>
           </div>
         </Card>
 
-        {/* Screenshot */}
-        <Card className="p-8 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Screenshot</h3>
-          
-          {formData.screenshot ? (
-            <div className="relative rounded-xl overflow-hidden border border-slate-200 group">
-              <img src={formData.screenshot} alt="Trade Screenshot" className="w-full h-auto object-cover max-h-[400px]" />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                <Label htmlFor="screenshot-upload" className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-lg font-medium hover:bg-slate-100">
-                  Replace
-                </Label>
-                <button type="button" onClick={handleRemoveScreenshot} className="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600">
-                  Remove
-                </button>
+        {/* Entry & Exit Screenshots */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 1st: Entry Screenshot */}
+          <Card className="p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>Entry Screenshot</span>
+                  <span className="text-xs font-normal text-slate-400">1st (Execution)</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Chart setup at the moment of entry</p>
               </div>
-              <input 
-                id="screenshot-upload"
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                onChange={handleImageUpload}
-              />
-            </div>
-          ) : (
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDraggingScreenshot(true);
-              }}
-              onDragLeave={() => setIsDraggingScreenshot(false)}
-              onDrop={handleScreenshotDrop}
-              className={cn(
-                "border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center transition-colors cursor-pointer group",
-                isDraggingScreenshot 
-                  ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/40" 
-                  : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+              {formData.screenshot && (
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full">
+                  Added
+                </span>
               )}
-            >
-              <Label htmlFor="screenshot-upload" className="cursor-pointer flex flex-col items-center justify-center w-full">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-950/70 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <UploadCloud className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            
+            {formData.screenshot ? (
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 group bg-slate-950/5 dark:bg-slate-950">
+                <img src={formData.screenshot} alt="Entry Screenshot" className="w-full h-auto object-contain max-h-[300px] mx-auto" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  <Label htmlFor="entry-screenshot-upload" className="cursor-pointer bg-white text-slate-900 px-3.5 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-100 shadow-md">
+                    Replace
+                  </Label>
+                  <button type="button" onClick={() => handleRemoveScreenshot('screenshot')} className="bg-red-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium hover:bg-red-600 shadow-md">
+                    Remove
+                  </button>
                 </div>
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  PNG, JPG, JPEG, WEBP or Paste (Ctrl+V)
-                </p>
                 <input 
-                  id="screenshot-upload"
+                  id="entry-screenshot-upload"
                   type="file" 
                   accept="image/*" 
                   className="hidden" 
-                  onChange={handleImageUpload}
+                  onChange={(e) => handleImageUpload(e, 'screenshot')}
                 />
-              </Label>
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingScreenshot(true);
+                }}
+                onDragLeave={() => setIsDraggingScreenshot(false)}
+                onDrop={(e) => handleScreenshotDrop(e, 'screenshot')}
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-colors cursor-pointer group min-h-[220px]",
+                  isDraggingScreenshot 
+                    ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/40" 
+                    : "border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+                )}
+              >
+                <Label htmlFor="entry-screenshot-upload" className="cursor-pointer flex flex-col items-center justify-center w-full">
+                  <div className="w-11 h-11 bg-blue-100 dark:bg-blue-950/70 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <UploadCloud className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1 text-center">
+                    Upload Entry Screenshot
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    PNG, JPG, WEBP or Paste (Ctrl+V)
+                  </p>
+                  <input 
+                    id="entry-screenshot-upload"
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => handleImageUpload(e, 'screenshot')}
+                  />
+                </Label>
+              </div>
+            )}
+          </Card>
+
+          {/* 2nd: Exit Screenshot (Optional) */}
+          <Card className="p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>Exit Screenshot</span>
+                  <span className="text-xs font-normal text-slate-400">2nd (Optional)</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Chart outcome when closing or exiting trade</p>
+              </div>
+              {formData.exitScreenshot ? (
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full">
+                  Added
+                </span>
+              ) : (
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Optional
+                </span>
+              )}
             </div>
-          )}
-        </Card>
+            
+            {formData.exitScreenshot ? (
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 group bg-slate-950/5 dark:bg-slate-950">
+                <img src={formData.exitScreenshot} alt="Exit Screenshot" className="w-full h-auto object-contain max-h-[300px] mx-auto" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  <Label htmlFor="exit-screenshot-upload" className="cursor-pointer bg-white text-slate-900 px-3.5 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-100 shadow-md">
+                    Replace
+                  </Label>
+                  <button type="button" onClick={() => handleRemoveScreenshot('exitScreenshot')} className="bg-red-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium hover:bg-red-600 shadow-md">
+                    Remove
+                  </button>
+                </div>
+                <input 
+                  id="exit-screenshot-upload"
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => handleImageUpload(e, 'exitScreenshot')}
+                />
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingExitScreenshot(true);
+                }}
+                onDragLeave={() => setIsDraggingExitScreenshot(false)}
+                onDrop={(e) => handleScreenshotDrop(e, 'exitScreenshot')}
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-colors cursor-pointer group min-h-[220px]",
+                  isDraggingExitScreenshot 
+                    ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/40" 
+                    : "border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+                )}
+              >
+                <Label htmlFor="exit-screenshot-upload" className="cursor-pointer flex flex-col items-center justify-center w-full">
+                  <div className="w-11 h-11 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <UploadCloud className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1 text-center">
+                    Upload Exit Screenshot
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Optional • Shows chart at trade exit / conclusion
+                  </p>
+                  <input 
+                    id="exit-screenshot-upload"
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => handleImageUpload(e, 'exitScreenshot')}
+                  />
+                </Label>
+              </div>
+            )}
+          </Card>
+        </div>
 
         {/* Notes & Learning */}
         <Card className="p-8 shadow-sm">
@@ -765,6 +1067,95 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
           </div>
         </Card>
 
+        {/* Competition Arena 2.0 Linking Card */}
+        <Card className="p-6 border-indigo-100 dark:border-indigo-950/60 bg-gradient-to-br from-white via-white to-indigo-50/20 dark:from-slate-900 dark:to-indigo-950/20">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Swords className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Add this trade to Competition Data?
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Optionally link this trade directly into active arena competitions. Uses relational trade linking—never duplicates your canonical financial records.
+              </p>
+            </div>
+            {selectedCompetitionIds.length > 0 && (
+              <Badge variant="neutral" className="text-indigo-600 border-indigo-200 bg-indigo-50 dark:bg-indigo-950/50">
+                {selectedCompetitionIds.length} Selected
+              </Badge>
+            )}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+            {/* No Competition Option */}
+            <label className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100/60 dark:hover:bg-slate-800 cursor-pointer transition-colors">
+              <input
+                type="radio"
+                name="competition_toggle"
+                checked={selectedCompetitionIds.length === 0}
+                onChange={() => setSelectedCompetitionIds([])}
+                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div className="text-xs">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">No Competition</span>
+                <span className="text-slate-400 block text-[11px]">Keep strictly in personal trading journal</span>
+              </div>
+            </label>
+
+            {/* Active Competitions List */}
+            {activeCompetitions.length > 0 ? (
+              activeCompetitions.map((comp) => {
+                const isSelected = selectedCompetitionIds.includes(comp.id);
+                return (
+                  <label
+                    key={comp.id}
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/30 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCompetitionIds(prev => [...prev, comp.id]);
+                          } else {
+                            setSelectedCompetitionIds(prev => prev.filter(id => id !== comp.id));
+                          }
+                        }}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                            {comp.name}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                            {comp.scoringMode || 'Total R'}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 block">
+                          {Object.keys(comp.members || {}).length} participants • Ends {new Date(comp.endDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <Trophy className="w-4 h-4 text-amber-500 opacity-80" />
+                  </label>
+                );
+              })
+            ) : (
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+                You haven&apos;t joined or created any active competitions yet. You can launch one anytime from the <span className="font-semibold text-indigo-600">Competition Arena</span> tab.
+              </div>
+            )}
+          </div>
+        </Card>
+
         {/* Actions */}
         {isModal ? (
           <div className="sticky bottom-0 p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex flex-col-reverse sm:flex-row justify-end gap-3 z-30 -mx-4 -mb-4 mt-6">
@@ -773,7 +1164,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                 Cancel
               </Button>
             )}
-            <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[160px]">
+            <Button type="submit" size="lg" disabled={isSubmitting || !formData.market || !formData.entry} className="w-full sm:w-auto min-w-[160px]">
               Save & View Psychology
             </Button>
           </div>
@@ -782,7 +1173,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
             <Button type="button" variant="outline" onClick={(e) => handleSubmit(e, true)} className="w-full sm:w-auto">
               Save & Add Another
             </Button>
-            <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[160px]">
+            <Button type="submit" size="lg" disabled={isSubmitting || !formData.market || !formData.entry} className="w-full sm:w-auto min-w-[160px]">
               Save Trade
             </Button>
           </div>

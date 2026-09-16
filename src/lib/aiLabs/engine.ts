@@ -336,6 +336,9 @@ export function generateAIObservations(
         },
         dateRange: `${comparison.currentPeriodLabel} vs ${comparison.previousPeriodLabel}`,
         evidenceLevel: level,
+        counterEvidence: "Verify if market conditions changed during this period.",
+        limitation: "Statistical significance is low due to small sample size.",
+        nextTest: "Run a backtest using a fixed risk amount to isolate strategy performance.",
         possibleAlternatives: [
           'Position sizing differences may be driven by different instrument volatility or stop distances.',
           'Trades taken on higher-conviction setups may have deliberately used elevated position sizing.',
@@ -395,6 +398,9 @@ export function generateAIObservations(
         },
         dateRange: comparison.currentPeriodLabel,
         evidenceLevel: getEvidenceLevel(fomoTrades.length + calmTrades.length),
+        counterEvidence: "Verify if market conditions changed during this period.",
+        limitation: "Statistical significance is low due to small sample size.",
+        nextTest: "Run a backtest using a fixed risk amount to isolate strategy performance.",
         possibleAlternatives: [
           'FOMO entries may have coincided with choppy market conditions or late session breakouts.',
           'Traders may disproportionately self-tag trades as FOMO post-facto when a trade results in a loss.'
@@ -448,6 +454,9 @@ export function generateAIObservations(
         },
         dateRange: comparison.currentPeriodLabel,
         evidenceLevel: getEvidenceLevel(highAdherence.length + lowAdherence.length),
+        counterEvidence: "Verify if market conditions changed during this period.",
+        limitation: "Statistical significance is low due to small sample size.",
+        nextTest: "Run a backtest using a fixed risk amount to isolate strategy performance.",
         possibleAlternatives: [
           'Traders may be more critical of rule adherence following an unexpected market spike or stop-out.',
           'Rule definitions may be overly rigid for certain fast-moving volatility setups.'
@@ -501,7 +510,10 @@ export function generateAIObservations(
             },
             dateRange: comparison.currentPeriodLabel,
             evidenceLevel: getEvidenceLevel(londonTrades.length + nyTrades.length),
-            possibleAlternatives: [
+            counterEvidence: "Verify if market conditions changed during this period.",
+        limitation: "Statistical significance is low due to small sample size.",
+        nextTest: "Run a backtest using a fixed risk amount to isolate strategy performance.",
+        possibleAlternatives: [
               'Different market liquidity or spread conditions between session open and close.',
               'Potential difference in fatigue or focus levels depending on your local time zone.',
               'Different instruments may have been traded predominantly during one session.'
@@ -559,6 +571,9 @@ export function generateAIObservations(
         },
         dateRange: comparison.currentPeriodLabel,
         evidenceLevel: getEvidenceLevel(highDensityTrades.length),
+        counterEvidence: "Verify if market conditions changed during this period.",
+        limitation: "Statistical significance is low due to small sample size.",
+        nextTest: "Run a backtest using a fixed risk amount to isolate strategy performance.",
         possibleAlternatives: [
           'High trade frequency may occur during trending, highly volatile market days offering more valid setups.',
           'Re-entry attempts following early stop-outs may compress overall day performance.'

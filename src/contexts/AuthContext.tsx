@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User as FirebaseUser, 
   onAuthStateChanged,
-  signOut as firebaseSignOut
+  signOut as firebaseSignOut,
+  deleteUser
 } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { 
@@ -16,17 +17,9 @@ import {
   deleteDoc, 
   writeBatch 
 } from 'firebase/firestore';
-import { UserProfile } from '@/types';
+import { UserProfile, Dashboard } from '@/types';
 import { uploadAvatarFile } from '@/lib/avatarStorage';
-
-interface Dashboard {
-  id: string;
-  name: string;
-  currency: string;
-  startingBalance: number;
-  createdAt: number;
-  updatedAt: number;
-}
+import { logSecurityEvent } from '@/lib/securityService';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -42,6 +35,7 @@ interface AuthContextType {
   uploadAvatar: (file: File) => Promise<string>;
   removeAvatar: () => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -331,7 +325,81 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
+    if (user) {
+      await logSecurityEvent(user.uid, {
+        action: 'AUTH_LOGOUT',
+        title: 'User Sign Out',
+        description: `Session signed out from ${user.email || 'User'}.`,
+        status: 'success'
+      });
+    }
     await firebaseSignOut(auth);
+  };
+
+  const deleteAccount = async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('You are currently offline. Please reconnect before deleting your account.');
+    }
+    if (!user) throw new Error('Not authenticated');
+    const uid = user.uid;
+
+    try {
+      await logSecurityEvent(uid, {
+        action: 'ACCOUNT_DELETION_ATTEMPTED',
+        title: 'Permanent Account Purge',
+        description: `Full account and data wipe requested for ${user.email}.`,
+        status: 'warning'
+      });
+    } catch {}
+
+    // 1. Delete each dashboard and all subcollections
+    for (const d of dashboards) {
+      const subcollections = ['trades', 'strategies', 'learnings', 'rules', 'calculatorHistory'];
+      for (const sub of subcollections) {
+        try {
+          const subRef = collection(db, 'users', uid, 'dashboards', d.id, sub);
+          const snap = await getDocs(subRef);
+          const BATCH_SIZE = 400;
+          for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
+            const batch = writeBatch(db);
+            snap.docs.slice(i, i + BATCH_SIZE).forEach(docItem => batch.delete(docItem.ref));
+            await batch.commit();
+          }
+        } catch (e) {
+          console.warn(`Error deleting subcollection ${sub} for dashboard ${d.id}:`, e);
+        }
+      }
+      try {
+        await deleteDoc(doc(db, 'users', uid, 'dashboards', d.id));
+      } catch (e) {}
+    }
+
+    // 2. Delete newsSettings and auditLogs subcollections
+    const otherSubcollections = ['newsSettings', 'auditLogs'];
+    for (const sub of otherSubcollections) {
+      try {
+        const subRef = collection(db, 'users', uid, sub);
+        const snap = await getDocs(subRef);
+        for (const d of snap.docs) {
+          await deleteDoc(d.ref);
+        }
+      } catch (e) {}
+    }
+
+    // 3. Delete profile and academy docs
+    try { await deleteDoc(doc(db, 'users', uid, 'profile', 'info')); } catch {}
+    try { await deleteDoc(doc(db, 'users', uid, 'academy', 'profile')); } catch {}
+
+    // 4. Delete top-level user doc
+    try { await deleteDoc(doc(db, 'users', uid)); } catch {}
+
+    // 5. Clear local storage caches
+    localStorage.removeItem('tradevault_last_dashboard');
+    localStorage.removeItem('tradevault_academy_progress');
+    localStorage.removeItem(`tradevault_audit_logs_${uid}`);
+
+    // 6. Delete Firebase Auth user account
+    await deleteUser(user);
   };
 
   return (
@@ -348,7 +416,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       updateProfile,
       uploadAvatar,
       removeAvatar,
-      logout
+      logout,
+      deleteAccount
     }}>
       {!loading && children}
     </AuthContext.Provider>

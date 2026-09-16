@@ -1,20 +1,27 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  doc,
+  getDocFromServer,
+  setLogLevel
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
+// Silence verbose internal connection warnings from Firestore SDK
+setLogLevel('silent');
+
 const app = initializeApp(firebaseConfig);
 
-// Configure Firestore with experimentalForceLongPolling to eliminate WebChannel streaming
-// connection dropouts in proxy and iframe environments.
-export const db = initializeFirestore(
-  app,
-  {
-    experimentalForceLongPolling: true,
-  },
-  firebaseConfig.firestoreDatabaseId
-);
+// In browser environments, initialize Firestore with long-polling to prevent
+// WebChannel stream drop issues in iframes/proxies.
+export const db = typeof window !== 'undefined'
+  ? initializeFirestore(app, {
+      experimentalForceLongPolling: true
+    }, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
@@ -30,4 +37,5 @@ async function testConnection() {
   }
 }
 testConnection();
+
 

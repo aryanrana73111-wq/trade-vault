@@ -44,11 +44,17 @@ import { RecentActivityTimelineWidget } from '@/components/commandCenter/RecentA
 import { ConnectedWorkflowBanner } from '@/components/commandCenter/ConnectedWorkflowBanner';
 import { LayoutCustomizerModal } from '@/components/commandCenter/LayoutCustomizerModal';
 import { EvidenceDrawer } from '@/components/aiLabs/EvidenceDrawer';
+import { MacroMarketIntelligenceWidget } from '@/components/commandCenter/MacroMarketIntelligenceWidget';
+import { EventDetailModal } from '@/components/news/EventDetailModal';
+import { MyAlertsModal } from '@/components/news/MyAlertsModal';
+import { getStoredNewsSettings, saveStoredNewsSettings } from '@/lib/news/newsStore';
+import { NewsEvent } from '@/types/newsIntelligence';
 
 const DEFAULT_LAYOUT: CommandCenterLayoutConfig = {
   visibleWidgets: {
     topSummary: true,
     attentionPanel: true,
+    macroIntelligence: true,
     tradingState: true,
     quickInvestigation: true,
     pinnedItems: true,
@@ -57,6 +63,7 @@ const DEFAULT_LAYOUT: CommandCenterLayoutConfig = {
   },
   widgetOrder: [
     'topSummary',
+    'macroIntelligence',
     'attentionPanel',
     'tradingState',
     'quickInvestigation',
@@ -224,6 +231,19 @@ const CommandCenterView: React.FC = () => {
   const [evidenceSubtitle, setEvidenceSubtitle] = useState('');
   const [evidenceTrades, setEvidenceTrades] = useState<Trade[]>([]);
   const [evidenceHighlights, setEvidenceHighlights] = useState<string[]>([]);
+
+  // Macro & News Intelligence State
+  const [newsSettings, setNewsSettings] = useState(() => getStoredNewsSettings());
+  const [selectedNewsEvent, setSelectedNewsEvent] = useState<NewsEvent | null>(null);
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+
+  const handleUpdateNewsSettings = (updates: any) => {
+    setNewsSettings(prev => {
+      const updated = { ...prev, ...updates };
+      saveStoredNewsSettings(updated);
+      return updated;
+    });
+  };
 
   // Layout configuration persisted per user & dashboard
   const layoutStorageKey = `tradevault_cc_layout_${user?.uid || 'guest'}_${activeDashboard?.id || 'default'}`;
@@ -428,6 +448,16 @@ const CommandCenterView: React.FC = () => {
             key="topSummary"
             summary={summary}
             visibleMetrics={layoutConfig?.visibleMetrics || DEFAULT_LAYOUT.visibleMetrics}
+          />
+        );
+      case 'macroIntelligence':
+        return (
+          <MacroMarketIntelligenceWidget
+            key="macroIntelligence"
+            timezone={newsSettings.timezone}
+            trades={safeTrades}
+            onSelectEvent={(ev) => setSelectedNewsEvent(ev)}
+            onOpenMyAlerts={() => setIsAlertsModalOpen(true)}
           />
         );
       case 'attentionPanel':
@@ -640,6 +670,42 @@ const CommandCenterView: React.FC = () => {
         subtitle={evidenceSubtitle}
         trades={evidenceTrades}
         highlightFields={evidenceHighlights}
+      />
+
+      {/* Economic Event Intelligence Detail Modal */}
+      {selectedNewsEvent && (
+        <EventDetailModal
+          event={selectedNewsEvent}
+          onClose={() => setSelectedNewsEvent(null)}
+          timezone={newsSettings.timezone}
+          userNote={newsSettings.userNotes[selectedNewsEvent.id] || ''}
+          onSaveNote={(id, note) => {
+            handleUpdateNewsSettings({
+              userNotes: { ...newsSettings.userNotes, [id]: note }
+            });
+          }}
+          isWatchlisted={(newsSettings.watchlistedEventIds || []).includes(selectedNewsEvent.id)}
+          onToggleWatchlist={(id) => {
+            const list = newsSettings.watchlistedEventIds || [];
+            const next = list.includes(id) ? list.filter(item => item !== id) : [...list, id];
+            handleUpdateNewsSettings({ watchlistedEventIds: next });
+          }}
+        />
+      )}
+
+      {/* My Alerts Modal */}
+      <MyAlertsModal
+        isOpen={isAlertsModalOpen}
+        onClose={() => setIsAlertsModalOpen(false)}
+        settings={newsSettings}
+        onUpdateSettings={handleUpdateNewsSettings}
+        onSelectEvent={(eventId) => {
+          const ev = safeTrades; // search in NEWS_EVENTS
+          import('@/data/newsIntelligenceData').then(m => {
+            const found = m.NEWS_EVENTS.find(e => e.id === eventId);
+            if (found) setSelectedNewsEvent(found);
+          });
+        }}
       />
     </div>
   );

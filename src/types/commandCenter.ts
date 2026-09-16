@@ -142,6 +142,7 @@ export interface CommandCenterLayoutConfig {
   visibleWidgets: {
     topSummary: boolean;
     attentionPanel: boolean;
+    macroIntelligence?: boolean;
     tradingState: boolean;
     quickInvestigation: boolean;
     pinnedItems: boolean;

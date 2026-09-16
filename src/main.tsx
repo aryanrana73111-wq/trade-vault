@@ -6,11 +6,13 @@ import './index.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { DataProvider } from '@/contexts/DataContext';
+import { AcademyProvider } from '@/contexts/AcademyContext';
+import { ArenaProvider } from '@/contexts/ArenaContext';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { registerSW } from 'virtual:pwa-register';
 
-// Register service worker for PWA update management
-if ('serviceWorker' in navigator) {
+// Register service worker for PWA update management in production
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   registerSW({ immediate: true });
 }
 
@@ -20,8 +22,12 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <AuthProvider>
           <DataProvider>
-            <OfflineIndicator />
-            <App />
+            <ArenaProvider>
+              <AcademyProvider>
+              <OfflineIndicator />
+              <App />
+            </AcademyProvider>
+            </ArenaProvider>
           </DataProvider>
         </AuthProvider>
       </ThemeProvider>

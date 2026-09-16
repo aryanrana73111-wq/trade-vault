@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import { Trade, Strategy } from '@/types';
 import { Card, Input, Badge } from '@/components/ui/Input';
@@ -34,15 +35,44 @@ import {
   TrendingUp,
   BarChart3,
   ListFilter,
-  Layers
+  Layers,
+  GraduationCap,
+  ShieldAlert,
+  Sparkles
 } from 'lucide-react';
+import { RecommendedPsychologyView } from '@/components/psychology/RecommendedPsychologyView';
+import { BehavioralResearchView } from '@/components/psychology/BehavioralResearchView';
+import { BehavioralAnalyticsTab } from '@/components/psychology/BehavioralAnalyticsTab';
+import { PSYCHOLOGY_LIBRARY } from '@/data/psychologyLibrary';
+import { PSYCHOLOGY_PROTOCOLS } from '@/data/psychologyProtocols';
 
 export default function Psychology() {
+  const navigate = useNavigate();
   const { trades: rawTrades, strategies: rawStrategies, updateTrade } = useData();
   const settings = getSettings();
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validPsychTabs = ['workspace', 'biases', 'protocols', 'analytics'] as const;
+  type PsychTabType = typeof validPsychTabs[number];
+  const urlPsychTab = searchParams.get('tab') as PsychTabType | null;
+  const [psychologyMainTab, setPsychologyMainTab] = useState<PsychTabType>(
+    urlPsychTab && validPsychTabs.includes(urlPsychTab) ? urlPsychTab : 'analytics'
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get('tab') as PsychTabType | null;
+    if (tab && validPsychTabs.includes(tab)) {
+      setPsychologyMainTab(tab);
+    }
+  }, [searchParams]);
+
+  const handlePsychTabChange = (tab: PsychTabType) => {
+    setPsychologyMainTab(tab);
+    setSearchParams({ tab });
+  };
 
   // Modals state
   const [isAddTradeOpen, setIsAddTradeOpen] = useState(false);
@@ -191,6 +221,16 @@ export default function Psychology() {
           <Button
             variant="outline"
             size="md"
+            onClick={() => navigate('/academy?tab=curriculum&level=6')}
+            className="gap-2 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 font-semibold shadow-sm"
+          >
+            <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            Academy Level 6
+          </Button>
+
+          <Button
+            variant="outline"
+            size="md"
             onClick={() => setIsJournalSelectorOpen(true)}
             className="gap-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold shadow-sm"
           >
@@ -210,8 +250,73 @@ export default function Psychology() {
         </div>
       </div>
 
-      {/* Navigation Pills */}
-      <div className="flex flex-wrap items-center gap-2 pb-2">
+      {/* Top Main Navigation Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button
+          onClick={() => handlePsychTabChange('workspace')}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
+            psychologyMainTab === 'workspace'
+              ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+          )}
+        >
+          <Layers className="w-4 h-4" /> Workspace & Tracker ({trades.length})
+        </button>
+
+        <button
+          onClick={() => handlePsychTabChange('biases')}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
+            psychologyMainTab === 'biases'
+              ? "bg-purple-600 text-white shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+          )}
+        >
+          <Brain className="w-4 h-4" /> Behavioral Biases Library ({PSYCHOLOGY_LIBRARY.length})
+        </button>
+
+        <button
+          onClick={() => handlePsychTabChange('protocols')}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
+            psychologyMainTab === 'protocols'
+              ? "bg-purple-600 text-white shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+          )}
+        >
+          <ShieldAlert className="w-4 h-4" /> Action Protocols & Research ({PSYCHOLOGY_PROTOCOLS.length})
+        </button>
+
+        <button
+          onClick={() => handlePsychTabChange('analytics')}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
+            psychologyMainTab === 'analytics'
+              ? "bg-purple-600 text-white shadow-sm"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+          )}
+        >
+          <BarChart3 className="w-4 h-4" /> Behavioral Analytics
+        </button>
+      </div>
+
+      {psychologyMainTab === 'analytics' && (
+        <BehavioralAnalyticsTab trades={trades} />
+      )}
+
+      {psychologyMainTab === 'biases' && (
+        <RecommendedPsychologyView />
+      )}
+
+      {psychologyMainTab === 'protocols' && (
+        <BehavioralResearchView />
+      )}
+
+      {psychologyMainTab === 'workspace' && (
+        <>
+          {/* Navigation Pills */}
+          <div className="flex flex-wrap items-center gap-2 pb-2">
         <button
           onClick={() => setActiveSection('all')}
           className={cn(
@@ -533,6 +638,8 @@ export default function Psychology() {
             sessionStats={sessionStats}
           />
         </section>
+      )}
+        </>
       )}
 
       {/* MODAL 1: ADD TRADE MODAL */}

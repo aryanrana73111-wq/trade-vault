@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   sendPasswordResetEmail,
+  sendEmailVerification,
   fetchSignInMethodsForEmail,
   linkWithCredential,
   EmailAuthProvider
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Input, Label, Card } from '@/components/ui/Input';
 import { Eye, EyeOff, ShieldCheck, AlertCircle, Sparkles, KeyRound, Mail } from 'lucide-react';
 import { getFriendlyAuthErrorMessage } from '@/lib/authErrors';
+import { logSecurityEvent } from '@/lib/securityService';
 
 interface GoogleNoticeState {
   show: boolean;
@@ -75,7 +77,18 @@ export default function Login() {
 
       try {
         setLoading(true);
-        await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        const res = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        try {
+          await sendEmailVerification(res.user);
+          await logSecurityEvent(res.user.uid, {
+            action: 'AUTH_SIGNUP',
+            title: 'Account Created',
+            description: `New user account created with email/password (${cleanEmail}). Verification email dispatched.`,
+            status: 'success'
+          });
+        } catch (vErr) {
+          console.warn('Post-signup verification email note:', vErr);
+        }
         navigate('/');
       } catch (err: any) {
         if (err.code === 'auth/email-already-in-use') {
@@ -123,18 +136,31 @@ export default function Login() {
 
       try {
         setLoading(true);
+        let loginUser = null;
         try {
-          await signInWithEmailAndPassword(auth, cleanEmail, password);
+          const res = await signInWithEmailAndPassword(auth, cleanEmail, password);
+          loginUser = res.user;
         } catch (initialErr: any) {
           // If password had trailing/leading spaces and failed, try trimmed password
           if (
             password.trim() !== password &&
             (initialErr.code === 'auth/invalid-credential' || initialErr.code === 'auth/wrong-password')
           ) {
-            await signInWithEmailAndPassword(auth, cleanEmail, password.trim());
+            const res = await signInWithEmailAndPassword(auth, cleanEmail, password.trim());
+            loginUser = res.user;
           } else {
             throw initialErr;
           }
+        }
+        if (loginUser) {
+          try {
+            await logSecurityEvent(loginUser.uid, {
+              action: 'AUTH_LOGIN',
+              title: 'Email/Password Sign-In',
+              description: `User authenticated successfully with email credentials (${cleanEmail}).`,
+              status: 'success'
+            });
+          } catch {}
         }
         navigate('/');
       } catch (err: any) {
@@ -188,7 +214,17 @@ export default function Login() {
       setMessage('');
       setGoogleNotice(null);
       setInvalidCredentialHelp(null);
-      await signInWithPopup(auth, googleProvider);
+      const res = await signInWithPopup(auth, googleProvider);
+      if (res.user) {
+        try {
+          await logSecurityEvent(res.user.uid, {
+            action: 'AUTH_LOGIN',
+            title: 'Google OAuth Sign-In',
+            description: `User authenticated with Google OAuth 2.0 (${res.user.email}).`,
+            status: 'success'
+          });
+        } catch {}
+      }
       navigate('/');
     } catch (err: any) {
       setError(getFriendlyAuthErrorMessage(err));
@@ -217,6 +253,15 @@ export default function Login() {
       const credential = EmailAuthProvider.credential(user.email!, password);
       await linkWithCredential(user, credential);
 
+      try {
+        await logSecurityEvent(user.uid, {
+          action: 'PASSWORD_LINKED',
+          title: 'Password Credentials Linked',
+          description: `Password credentials successfully linked to existing Google account (${user.email}).`,
+          status: 'success'
+        });
+      } catch {}
+
       navigate('/');
     } catch (err: any) {
       if (err.code === 'auth/credential-already-in-use') {
@@ -241,6 +286,16 @@ export default function Login() {
     try {
       setLoading(true);
       await sendPasswordResetEmail(auth, cleanEmail);
+      if (auth.currentUser?.uid) {
+        try {
+          await logSecurityEvent(auth.currentUser.uid, {
+            action: 'PASSWORD_RESET_SENT',
+            title: 'Password Reset Dispatched',
+            description: `Password reset email dispatched to ${cleanEmail}.`,
+            status: 'success'
+          });
+        } catch {}
+      }
       setMessage(`Password reset email sent to ${cleanEmail}. Check your inbox (or spam) to set or reset your password. Once set, you can sign in directly!`);
       setError('');
       setGoogleNotice(null);

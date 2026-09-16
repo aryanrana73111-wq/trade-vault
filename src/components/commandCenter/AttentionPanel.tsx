@@ -148,31 +148,31 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
                 key={item.id} 
                 className="p-4 sm:p-5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 flex-shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 min-w-0">
+                  <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="mt-0.5 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 shrink-0">
                       {getCategoryIcon(item.category)}
                     </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 break-words">
                           {item.title}
                         </h3>
                         {getSeverityBadge(item.severity)}
                         {item.sampleSize !== undefined && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                          <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium shrink-0">
                             Sample: {item.sampleSize} trades
                           </span>
                         )}
                       </div>
-                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 break-words leading-relaxed">
                         {item.explanation}
                       </p>
 
                       {/* Comparison Metric if available */}
                       {item.metricComparison && (
-                        <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-xs">
-                          <span className="text-slate-500 dark:text-slate-400">{item.metricComparison.metricName}:</span>
+                        <div className="mt-2 inline-flex flex-wrap items-center gap-1.5 sm:gap-2 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-xs max-w-full">
+                          <span className="text-slate-500 dark:text-slate-400 truncate">{item.metricComparison.metricName}:</span>
                           <span className="font-semibold text-slate-900 dark:text-slate-100">{item.metricComparison.currentValue}</span>
                           <span className="text-slate-400">vs</span>
                           <span className="text-slate-500 dark:text-slate-400">{item.metricComparison.baselineValue}</span>
@@ -182,11 +182,11 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 self-end sm:self-start flex-shrink-0">
+                  <div className="flex items-center gap-2 self-start shrink-0">
                     {onPinItem && (
                       <button
                         onClick={() => onPinItem(item)}
-                        className={`p-2 rounded-lg text-xs font-medium border transition-colors ${
+                        className={`p-2 rounded-lg text-xs font-medium border transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer ${
                           pinned
                             ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300'
                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -199,7 +199,7 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
 
                     <button
                       onClick={() => onInvestigate(item)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer min-h-[36px]"
                     >
                       <span>Investigate</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -226,13 +226,13 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
                       <p className="leading-relaxed text-slate-600 dark:text-slate-300">
                         {item.whyText}
                       </p>
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[11px] text-slate-400">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 pt-1 min-w-0">
+                        <span className="text-[10px] sm:text-[11px] text-slate-400">
                           Based on {(item.tradeIds || []).length} underlying trade record{(item.tradeIds || []).length === 1 ? '' : 's'}.
                         </span>
                         <button
                           onClick={() => onInvestigate(item)}
-                          className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer shrink-0"
                         >
                           View Underlying Trades →
                         </button>

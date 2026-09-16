@@ -35,8 +35,14 @@ import {
   Percent, 
   TrendingUp, 
   TrendingDown,
-  Info
+  Info,
+  Flame,
+  Sparkles,
+  Globe
 } from 'lucide-react';
+import { NEWS_EVENTS } from '@/data/newsIntelligenceData';
+import { EventDetailModal } from '@/components/news/EventDetailModal';
+import { NewsEvent } from '@/types/newsIntelligence';
 
 export default function RiskCalculator() {
   const navigate = useNavigate();
@@ -71,6 +77,23 @@ export default function RiskCalculator() {
   const [isAdvancedModalOpen, setIsAdvancedModalOpen] = useState(false);
   const [history, setHistory] = useState<CalculatorHistoryItem[]>([]);
   const [isSavingHistory, setIsSavingHistory] = useState(false);
+  const [inspectEvent, setInspectEvent] = useState<NewsEvent | null>(null);
+
+  // Watch for imminent high-impact macro releases for the current instrument
+  const imminentMacroEvents = useMemo(() => {
+    if (!instrument?.symbol) return [];
+    const sym = instrument.symbol.toUpperCase();
+    const parts = sym.split(/[\/\-_]/).map(p => p.trim());
+    const currencies = [...parts];
+    if (sym.includes('XAU') || sym.includes('GOLD')) currencies.push('USD');
+    if (sym.includes('BTC') || sym.includes('ETH') || sym.includes('CRYPTO')) currencies.push('USD');
+
+    return NEWS_EVENTS.filter(e => {
+      const matchCur = currencies.includes(e.currency.toUpperCase());
+      const isHigh = e.impact === 'HIGH' || e.impact === 'MEDIUM';
+      return matchCur && isHigh;
+    }).slice(0, 2);
+  }, [instrument?.symbol]);
 
   // Synchronize with active dashboard when it loads/changes
   useEffect(() => {
@@ -325,6 +348,52 @@ export default function RiskCalculator() {
           </button>
         </div>
       </div>
+
+      {/* Informational Macro Event Advisory */}
+      {imminentMacroEvents.length > 0 && (
+        <div className="p-4 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+              <Flame className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-amber-950 dark:text-amber-100">
+                  Macro Catalyst Advisory for {instrument.symbol}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-amber-200/70 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
+                  High Volatility Scheduled
+                </span>
+              </div>
+              <div className="flex items-center gap-3 mt-1 text-xs text-amber-800 dark:text-amber-300 flex-wrap">
+                {imminentMacroEvents.map(ev => (
+                  <span key={ev.id} className="inline-flex items-center gap-1 font-medium">
+                    <span>{ev.countryCode === 'US' ? '🇺🇸' : ev.countryCode === 'EU' ? '🇪🇺' : '🌐'}</span>
+                    <strong>{ev.currency} {ev.name}</strong>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400">({ev.impact})</span>
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-1">
+                Informational risk notice only. TradeVault does not alter your position size or block your orders.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            {imminentMacroEvents[0] && (
+              <button
+                type="button"
+                onClick={() => setInspectEvent(imminentMacroEvents[0])}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Inspect Event Detail</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1">
@@ -694,6 +763,15 @@ export default function RiskCalculator() {
           TradeVault does not provide financial or investment advice. All calculations are intended for disciplined risk-management planning.
         </p>
       </div>
+
+      {/* Event Detail Modal for Macro Catalyst */}
+      {inspectEvent && (
+        <EventDetailModal
+          event={inspectEvent}
+          onClose={() => setInspectEvent(null)}
+          timezone="UTC"
+        />
+      )}
     </div>
   );
 }

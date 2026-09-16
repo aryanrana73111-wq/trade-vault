@@ -151,12 +151,105 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["id", "userId", "dashboardId", "text", "category", "priority", "status"]
+    },
+    "NewsUserSettings": {
+      "title": "NewsUserSettings",
+      "description": "User preferences, watchlists, notes, and progress for News Intelligence",
+      "type": "object",
+      "properties": {
+        "timezone": { "type": "string" },
+        "defaultImpactFilter": { "type": "string" },
+        "defaultMode": { "type": "string" },
+        "watchlistEventIds": { "type": "array", "items": { "type": "string" } },
+        "bookmarkedArticleIds": { "type": "array", "items": { "type": "string" } },
+        "learnedArticleIds": { "type": "array", "items": { "type": "string" } },
+        "userNotes": { "type": "object" },
+        "preEventNotificationMinutes": { "type": "number" }
+      }
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Security audit logs for user account and data operations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "deviceInfo": { "type": "string" },
+        "status": { "type": "string", "enum": ["success", "warning", "failed"] }
+      },
+      "required": ["id", "userId", "action", "timestamp"]
+    },
+    "Arena": {
+      "title": "Arena",
+      "description": "Trading competition arena",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "code": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "startDate": { "type": "number" },
+        "endDate": { "type": "number" },
+        "durationDays": { "type": "number" },
+        "status": { "type": "string" },
+        "state": { "type": "string" },
+        "scoringMode": { "type": "string" },
+        "startingMode": { "type": "string" },
+        "privacyMode": { "type": "string" },
+        "fairPlayMode": { "type": "string" },
+        "timezone": { "type": "string" },
+        "maxMembers": { "type": "number" },
+        "minTrades": { "type": "number" },
+        "memberIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "name", "code", "ownerId", "createdAt", "startDate", "endDate"]
+    },
+    "CompetitionTrade": {
+      "title": "CompetitionTrade",
+      "description": "Shared trade projection in a competition arena",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "competitionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "number" },
+        "market": { "type": "string" },
+        "direction": { "type": "string" },
+        "entry": { "type": "number" },
+        "pnl": { "type": "number" },
+        "rMultiple": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "competitionId", "userId", "date", "market", "direction", "entry"]
     }
   },
   "firestore": {
+    "/arenas/{arenaId}": {
+      "schema": { "$ref": "#/entities/Arena" },
+      "description": "Competition arenas"
+    },
+    "/arenas/{arenaId}/shared_trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/CompetitionTrade" },
+      "description": "Competition shared trade projections"
+    },
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
       "description": "User profiles"
+    },
+    "/users/{userId}/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "User security audit logs"
+    },
+    "/users/{userId}/newsSettings/{settingsId}": {
+      "schema": { "$ref": "#/entities/NewsUserSettings" },
+      "description": "News Intelligence preferences and notes"
     },
     "/users/{userId}/profile/{profileId}": {
       "schema": { "$ref": "#/entities/UserProfile" },

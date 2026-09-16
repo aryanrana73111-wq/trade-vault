@@ -41,8 +41,7 @@ interface PsychologyDetailModalProps {
 }
 
 const ALL_EMOTIONS: Emotion[] = [
-  'Calm', 'Confident', 'FOMO', 'Revenge', 'Fear', 'Greed',
-  'Anxious', 'Impatient', 'Frustrated', 'Disciplined'
+  'Confident', 'Unconfident'
 ];
 
 export const PsychologyDetailModal: React.FC<PsychologyDetailModalProps> = ({
@@ -64,7 +63,7 @@ export const PsychologyDetailModal: React.FC<PsychologyDetailModalProps> = ({
   // Editable psychology state
   const [emotions, setEmotions] = useState<Emotion[]>([]);
   const [confidence, setConfidence] = useState<number | undefined>(undefined);
-  const [setupQuality, setSetupQuality] = useState<string>('');
+  const [setupQuality, setSetupQuality] = useState<'A+' | 'B' | 'C' | ''>('');
   const [entryReason, setEntryReason] = useState('');
   
   const [duringEmotions, setDuringEmotions] = useState<Emotion[]>([]);
@@ -473,7 +472,7 @@ export const PsychologyDetailModal: React.FC<PsychologyDetailModalProps> = ({
                 <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Setup Quality Grade</Label>
                 {isEditing ? (
                   <div className="flex gap-2">
-                    {['A+', 'A', 'B', 'C'].map(g => (
+                    {(['A+', 'B', 'C'] as const).map(g => (
                       <button
                         key={g}
                         type="button"

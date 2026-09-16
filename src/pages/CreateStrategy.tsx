@@ -1,41 +1,44 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import { Strategy, StrategyRule, Market, Session, Timeframe } from '@/types';
 import { Card, Input, Label, Textarea, Badge } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import { Plus, X, ArrowLeft, GripVertical, Save } from 'lucide-react';
+import { Plus, X, ArrowLeft, GripVertical, Save, Sparkles, GraduationCap } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function CreateStrategy() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { saveStrategy } = useData();
+
+  const templateState = (location.state as any)?.strategyTemplate;
   
   const [formData, setFormData] = useState({
-    name: '',
-    shortDescription: '',
-    detailedDescription: '',
-    markets: [] as string[],
-    sessions: [] as string[],
-    timeframes: [] as string[],
-    entryRules: [] as StrategyRule[],
-    invalidationRules: [] as StrategyRule[],
+    name: templateState?.name || '',
+    shortDescription: templateState?.shortDescription || '',
+    detailedDescription: templateState?.detailedDescription || '',
+    markets: (templateState?.markets || []) as string[],
+    sessions: (templateState?.sessions || []) as string[],
+    timeframes: (templateState?.timeframes || []) as string[],
+    entryRules: (templateState?.entryRules || []) as StrategyRule[],
+    invalidationRules: (templateState?.invalidationRules || []) as StrategyRule[],
     exitRules: {
-      takeProfitLogic: '',
-      stopLossLogic: '',
-      partialExitRules: '',
-      trailingStopRules: '',
-      minimumRR: '',
+      takeProfitLogic: templateState?.exitRules?.takeProfitLogic || '',
+      stopLossLogic: templateState?.exitRules?.stopLossLogic || '',
+      partialExitRules: templateState?.exitRules?.partialExitRules || '',
+      trailingStopRules: templateState?.exitRules?.trailingStopRules || '',
+      minimumRR: templateState?.exitRules?.minimumRR || '',
     },
     riskRules: {
-      defaultRisk: '',
-      maxRisk: '',
-      minRR: '',
-      maxTradesPerDay: '',
+      defaultRisk: templateState?.riskRules?.defaultRisk || '',
+      maxRisk: templateState?.riskRules?.maxRisk || '',
+      minRR: templateState?.riskRules?.minRR || '',
+      maxTradesPerDay: templateState?.riskRules?.maxTradesPerDay || '',
     },
-    checklist: [] as StrategyRule[],
-    notes: '',
+    checklist: (templateState?.checklist || []) as StrategyRule[],
+    notes: templateState?.notes || '',
   });
 
   const [error, setError] = useState('');
@@ -142,6 +145,27 @@ export default function CreateStrategy() {
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium">
           {error}
+        </div>
+      )}
+
+      {templateState && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs uppercase font-bold text-blue-800 tracking-wider">
+                Academy Template Loaded
+              </h4>
+              <p className="text-xs text-blue-700 mt-0.5">
+                Pre-filled with institutional framework rules from TradeVault Academy. Review and customize before saving.
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded bg-blue-200 text-blue-800 shrink-0">
+            Academy Level 4
+          </span>
         </div>
       )}
 

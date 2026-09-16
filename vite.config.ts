@@ -45,9 +45,10 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         },
         devOptions: {
-          enabled: true,
+          enabled: false,
           type: 'module',
         },
       })
@@ -56,6 +57,7 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+      dedupe: ['react', 'react-dom'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

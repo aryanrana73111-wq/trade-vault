@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, deleteDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { Trade, Strategy, LearningEntry, TradingRule } from '../types';
+import { syncTradeToArenas } from '../lib/arenaService';
 
 interface DataContextType {
   trades: Trade[];
@@ -11,8 +12,9 @@ interface DataContextType {
   rules: TradingRule[];
   loading: boolean;
   saveTrade: (trade: Omit<Trade, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<Trade>;
-  updateTrade: (id: string, updates: Partial<Trade>) => Promise<void>;
+  updateTrade: (id: string, updates: Partial<Trade>) => Promise<Trade | void>;
   deleteTrade: (id: string) => Promise<void>;
+  deleteMultipleTrades: (ids: string[]) => Promise<void>;
   saveStrategy: (strategy: Omit<Strategy, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<Strategy>;
   updateStrategy: (id: string, updates: Partial<Strategy>) => Promise<void>;
   deleteStrategy: (id: string) => Promise<void>;
@@ -135,11 +137,19 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user || !activeDashboard) throw new Error('No active dashboard');
     
     // Calculate rrRatio properly
-    let rrRatio;
-    const risk = Math.abs(tradeData.entry - tradeData.stopLoss);
-    const reward = Math.abs(tradeData.takeProfit - tradeData.entry);
-    if (risk > 0) {
-      rrRatio = reward / risk;
+    let rrRatio: number | undefined = undefined;
+    if (
+      tradeData.entry !== undefined && 
+      tradeData.stopLoss !== undefined && 
+      tradeData.takeProfit !== undefined &&
+      Number(tradeData.stopLoss) > 0 &&
+      Number(tradeData.takeProfit) > 0
+    ) {
+      const risk = Math.abs(tradeData.entry - tradeData.stopLoss);
+      const reward = Math.abs(tradeData.takeProfit - tradeData.entry);
+      if (risk > 0) {
+        rrRatio = reward / risk;
+      }
     }
 
     const tradesRef = collection(db, 'users', user.uid, 'dashboards', activeDashboard.id, 'trades');
@@ -155,6 +165,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     await setDoc(newDoc, cleanUndefined(trade));
+    setTrades(prev => dedupById([trade, ...prev.filter(t => t.id !== trade.id)]));
+    try { await syncTradeToArenas(user.uid, trade); } catch(e) { console.error('Arena sync failed', e); }
     return trade;
   };
 
@@ -163,8 +175,70 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error('You are currently offline. Please reconnect before saving this trade.');
     }
     if (!user || !activeDashboard) return;
+    const currentTrade = trades.find(t => t.id === id);
+    if (!currentTrade) return;
+
+    // Track audit trail for key financial / execution fields
+    const auditedFields: (keyof Trade)[] = ['entry', 'exitPrice', 'stopLoss', 'takeProfit', 'positionSize', 'risk', 'result', 'pnl'];
+    const newAuditEntries: { field: string; oldValue?: any; newValue?: any; changedAt: number }[] = [];
+    
+    for (const field of auditedFields) {
+      if (updates[field] !== undefined && updates[field] !== currentTrade[field]) {
+        newAuditEntries.push({
+          field: String(field),
+          oldValue: currentTrade[field] !== undefined ? currentTrade[field] : null,
+          newValue: updates[field],
+          changedAt: Date.now()
+        });
+      }
+    }
+
+    const updatedAuditHistory = [
+      ...(currentTrade.auditHistory || []),
+      ...newAuditEntries
+    ];
+
+    // Recalculate rrRatio and rMultiple if financial fields changed and weren't explicitly passed
+    let rrRatio = updates.rrRatio !== undefined ? updates.rrRatio : currentTrade.rrRatio;
+    const effectiveEntry = updates.entry !== undefined ? updates.entry : currentTrade.entry;
+    const effectiveSL = updates.stopLoss !== undefined ? updates.stopLoss : currentTrade.stopLoss;
+    const effectiveTP = updates.takeProfit !== undefined ? updates.takeProfit : currentTrade.takeProfit;
+    if (
+      updates.rrRatio === undefined &&
+      effectiveEntry !== undefined &&
+      effectiveSL !== undefined &&
+      effectiveTP !== undefined &&
+      Number(effectiveSL) > 0 &&
+      Number(effectiveTP) > 0
+    ) {
+      const risk = Math.abs(effectiveEntry - effectiveSL);
+      const reward = Math.abs(effectiveTP - effectiveEntry);
+      if (risk > 0) {
+        rrRatio = Number((reward / risk).toFixed(2));
+      }
+    }
+
+    let rMultiple = updates.rMultiple !== undefined ? updates.rMultiple : currentTrade.rMultiple;
+    const effectivePnl = updates.pnl !== undefined ? updates.pnl : currentTrade.pnl;
+    const effectiveRisk = updates.risk !== undefined ? updates.risk : currentTrade.risk;
+    if (updates.rMultiple === undefined && effectivePnl !== undefined && effectiveRisk && effectiveRisk > 0) {
+      rMultiple = Number((effectivePnl / effectiveRisk).toFixed(2));
+    }
+
+    const updatedTrade = { 
+      ...currentTrade, 
+      ...updates, 
+      rrRatio,
+      rMultiple,
+      updatedAt: Date.now(),
+      auditHistory: updatedAuditHistory.length > 0 ? updatedAuditHistory : currentTrade.auditHistory
+    } as Trade;
+
     const tradeRef = doc(db, 'users', user.uid, 'dashboards', activeDashboard.id, 'trades', id);
-    await setDoc(tradeRef, cleanUndefined({ ...updates, updatedAt: Date.now() }), { merge: true });
+    await setDoc(tradeRef, cleanUndefined(updatedTrade));
+    setTrades(prev => prev.map(t => t.id === id ? updatedTrade : t));
+    try { await syncTradeToArenas(user.uid, updatedTrade); } catch(e) { console.error('Arena sync failed', e); }
+    return updatedTrade;
   };
 
   const deleteTrade = async (id: string) => {
@@ -174,6 +248,28 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user || !activeDashboard) return;
     const tradeRef = doc(db, 'users', user.uid, 'dashboards', activeDashboard.id, 'trades', id);
     await deleteDoc(tradeRef);
+    setTrades(prev => prev.filter(t => t.id !== id));
+  };
+
+  const deleteMultipleTrades = async (ids: string[]) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('You are currently offline. Please reconnect before deleting trades.');
+    }
+    if (!user || !activeDashboard) return;
+    if (!ids || ids.length === 0) return;
+
+    const idSet = new Set(ids);
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const chunk = ids.slice(i, i + BATCH_SIZE);
+      chunk.forEach(id => {
+        const ref = doc(db, 'users', user.uid, 'dashboards', activeDashboard.id, 'trades', id);
+        batch.delete(ref);
+      });
+      await batch.commit();
+    }
+    setTrades(prev => prev.filter(t => !idSet.has(t.id)));
   };
 
   const saveStrategy = async (strategyData: Omit<Strategy, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
@@ -373,6 +469,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       saveTrade,
       updateTrade,
       deleteTrade,
+      deleteMultipleTrades,
       saveStrategy,
       updateStrategy,
       deleteStrategy,

@@ -4,9 +4,14 @@ import { useData } from '@/contexts/DataContext';
 import { Strategy, Trade } from '@/types';
 import { Card } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { StrategyRobustnessTab } from '@/components/strategies/StrategyRobustnessTab';
+import { StrategyVersionsTab } from '@/components/strategies/StrategyVersionsTab';
 import { calculateKPIs } from '@/lib/calculations';
 import { formatCurrency, formatNumber, cn } from '@/lib/utils';
-import { ArrowLeft, Edit, Activity, Target, TrendingUp, DollarSign, Crosshair, TrendingDown, Scale, BarChart2, CheckCircle2, AlertCircle, Play, History, List, X } from 'lucide-react';
+import { ArrowLeft, Edit, Activity, Target, TrendingUp, DollarSign, Crosshair, TrendingDown, Scale, BarChart2, CheckCircle2, AlertCircle, Play, History, List, X, Flame, Globe2, Sparkles, Newspaper, Info } from 'lucide-react';
+import { NEWS_EVENTS } from '@/data/newsIntelligenceData';
+import { EventDetailModal } from '@/components/news/EventDetailModal';
+import { NewsEvent } from '@/types/newsIntelligence';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 
@@ -32,7 +37,8 @@ export default function StrategyDetail() {
   const { trades: rawTrades, strategies, updateStrategy } = useData();
   const [strategy, setStrategy] = useState<Strategy | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [activeTab, setActiveTab] = useState<'performance' | 'rules' | 'history'>('performance');
+  const [activeTab, setActiveTab] = useState<'performance' | 'rules' | 'robustness' | 'versions' | 'history'>('performance');
+  const [inspectEvent, setInspectEvent] = useState<NewsEvent | null>(null);
 
   useEffect(() => {
     const found = strategies.find(s => s.id === id);
@@ -48,6 +54,29 @@ export default function StrategyDetail() {
   }, [id, navigate, strategies, rawTrades]);
 
   const kpis = useMemo(() => calculateKPIs(trades), [trades]);
+
+  const strategyMacroStats = useMemo(() => {
+    const newsTrades = trades.filter(t => Boolean(t.newsEventId || t.newsEventName));
+    const nonNewsTrades = trades.filter(t => !t.newsEventId && !t.newsEventName);
+
+    const calcSubset = (list: Trade[]) => {
+      const closed = list.filter(t => t.result === 'WIN' || t.result === 'LOSS' || t.result === 'BREAK EVEN');
+      const wins = closed.filter(t => t.result === 'WIN');
+      const winRate = closed.length > 0 ? (wins.length / closed.length) * 100 : 0;
+      const netPnl = closed.reduce((acc, t) => acc + (t.pnl || 0), 0);
+      const grossProfit = wins.reduce((acc, t) => acc + (t.pnl || 0), 0);
+      const grossLoss = Math.abs(closed.filter(t => t.result === 'LOSS').reduce((acc, t) => acc + (t.pnl || 0), 0));
+      const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? 99 : 0);
+      const avgR = closed.length > 0 ? closed.reduce((acc, t) => acc + (t.rMultiple || 0), 0) / closed.length : 0;
+      return { count: list.length, closedCount: closed.length, winRate, netPnl, profitFactor, avgR, trades: list };
+    };
+
+    return {
+      news: calcSubset(newsTrades),
+      nonNews: calcSubset(nonNewsTrades),
+      recentCatalysts: newsTrades.slice(-6).reverse()
+    };
+  }, [trades]);
 
   const equityData = useMemo(() => {
     let runningEquity = 0;
@@ -104,6 +133,18 @@ export default function StrategyDetail() {
           className={cn("px-6 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'rules' ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700")}
         >
           <div className="flex items-center gap-2"><List className="w-4 h-4" /> Rules & Playbook</div>
+        </button>
+        <button 
+          onClick={() => setActiveTab('robustness')}
+          className={cn("px-6 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'robustness' ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700")}
+        >
+          <div className="flex items-center gap-2"><BarChart2 className="w-4 h-4" /> Robustness</div>
+        </button>
+        <button 
+          onClick={() => setActiveTab('versions')}
+          className={cn("px-6 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'versions' ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700")}
+        >
+          <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Versions</div>
         </button>
         <button 
           onClick={() => setActiveTab('history')}
@@ -174,8 +215,141 @@ export default function StrategyDetail() {
                 </div>
               </Card>
               
-              <div className="opacity-50 text-center py-8">
-                <p className="text-sm text-slate-500">More detailed breakdown (Market, Session, Emotion) can be built in the next step.</p>
+              {/* Macro Catalyst Performance Breakdown for this Strategy */}
+              <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                      <Globe2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Macro Catalyst Strategy Performance</h3>
+                      <p className="text-xs text-slate-500">
+                        Observing how {strategy.name} executes across scheduled news releases versus standard market sessions.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium self-start sm:self-auto">
+                    Empirical Observational • Non-Causal
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* News Trades */}
+                  <div className="p-4 rounded-xl border border-purple-100 bg-purple-50/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="w-4 h-4 text-purple-600" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-purple-900">
+                          News Catalyst Trades
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                        {strategyMacroStats.news.count} trades
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-white p-2.5 rounded-lg border border-purple-100">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Win Rate</div>
+                        <div className="text-base font-black text-slate-900 mt-0.5">
+                          {strategyMacroStats.news.closedCount > 0 ? `${formatNumber(strategyMacroStats.news.winRate, 1)}%` : '--'}
+                        </div>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-purple-100">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Net P&L</div>
+                        <div className={cn(
+                          "text-base font-black mt-0.5",
+                          strategyMacroStats.news.netPnl >= 0 ? "text-emerald-600" : "text-rose-600"
+                        )}>
+                          {strategyMacroStats.news.closedCount > 0 ? formatCurrency(strategyMacroStats.news.netPnl) : '--'}
+                        </div>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-purple-100">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Profit Factor</div>
+                        <div className="text-base font-black text-slate-900 mt-0.5">
+                          {strategyMacroStats.news.closedCount > 0 ? formatNumber(strategyMacroStats.news.profitFactor, 2) : '--'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Standard Non-News Trades */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-slate-600" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                          Standard Market Sessions
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                        {strategyMacroStats.nonNews.count} trades
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Win Rate</div>
+                        <div className="text-base font-black text-slate-900 mt-0.5">
+                          {strategyMacroStats.nonNews.closedCount > 0 ? `${formatNumber(strategyMacroStats.nonNews.winRate, 1)}%` : '--'}
+                        </div>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Net P&L</div>
+                        <div className={cn(
+                          "text-base font-black mt-0.5",
+                          strategyMacroStats.nonNews.netPnl >= 0 ? "text-emerald-600" : "text-rose-600"
+                        )}>
+                          {strategyMacroStats.nonNews.closedCount > 0 ? formatCurrency(strategyMacroStats.nonNews.netPnl) : '--'}
+                        </div>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Profit Factor</div>
+                        <div className="text-base font-black text-slate-900 mt-0.5">
+                          {strategyMacroStats.nonNews.closedCount > 0 ? formatNumber(strategyMacroStats.nonNews.profitFactor, 2) : '--'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Linked News Catalysts List */}
+                {strategyMacroStats.recentCatalysts.length > 0 && (
+                  <div className="pt-2 space-y-2">
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Recent Catalysts Traded Under This Strategy
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {strategyMacroStats.recentCatalysts.map(t => {
+                        const matchedEv = NEWS_EVENTS.find(e => e.id === t.newsEventId || e.name.toLowerCase() === (t.newsEventName || '').toLowerCase());
+                        return (
+                          <div 
+                            key={t.id} 
+                            className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs hover:border-blue-400 transition-colors cursor-pointer"
+                            onClick={() => matchedEv && setInspectEvent(matchedEv)}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="shrink-0">{matchedEv?.countryCode === 'US' ? '🇺🇸' : matchedEv?.countryCode === 'EU' ? '🇪🇺' : '🌐'}</span>
+                              <div className="truncate">
+                                <div className="font-semibold text-slate-900 truncate">{t.newsEventName || matchedEv?.name || 'Catalyst'}</div>
+                                <div className="text-[10px] text-slate-500">{format(new Date(t.date), 'MMM dd')} • {t.market}</div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className={cn(
+                                "font-bold text-xs",
+                                (t.pnl || 0) >= 0 ? "text-emerald-600" : "text-rose-600"
+                              )}>
+                                {(t.pnl || 0) >= 0 ? '+' : ''}{formatCurrency(t.pnl || 0)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -309,6 +483,14 @@ export default function StrategyDetail() {
         </div>
       )}
 
+      {activeTab === 'robustness' && (
+        <StrategyRobustnessTab strategy={strategy} trades={trades} />
+      )}
+
+      {activeTab === 'versions' && (
+        <StrategyVersionsTab strategy={strategy} />
+      )}
+
       {activeTab === 'history' && (
         <Card className="shadow-sm border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-200">
@@ -360,6 +542,13 @@ export default function StrategyDetail() {
         </Card>
       )}
 
+      {inspectEvent && (
+        <EventDetailModal
+          event={inspectEvent}
+          onClose={() => setInspectEvent(null)}
+          timezone="UTC"
+        />
+      )}
     </div>
   );
 }

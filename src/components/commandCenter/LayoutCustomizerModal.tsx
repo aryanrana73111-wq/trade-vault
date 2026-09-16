@@ -23,6 +23,7 @@ interface LayoutCustomizerModalProps {
 const WIDGET_LABELS: Record<string, string> = {
   topSummary: 'Top Performance & Discipline Summary',
   attentionPanel: 'What Needs My Attention (Smart Panel)',
+  macroIntelligence: 'Macro & Economic Intelligence (Today & Radar)',
   tradingState: 'Current Trading State (Comparative Cohort)',
   quickInvestigation: 'Quick Investigation & Search Bar',
   pinnedItems: 'Pinned Workspace Items',

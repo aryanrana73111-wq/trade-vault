@@ -50,6 +50,9 @@ export interface AIObservation {
   dateRange: string;
   evidenceLevel: EvidenceLevel;
   possibleAlternatives: string[];
+  counterEvidence?: string;
+  limitation?: string;
+  nextTest?: string;
   tradeIds: string[];
   highlightFields: (keyof Trade | string)[];
   showMeWhy: ShowMeWhyDetails;
@@ -114,7 +117,9 @@ export type AILabsTab =
   | 'experiments' 
   | 'alerts' 
   | 'quality' 
-  | 'controls';
+  | 'controls'
+  | 'quant'
+  | 'notebook';
 
 export interface Hypothesis {
   id: string;

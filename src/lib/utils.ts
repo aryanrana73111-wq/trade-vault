@@ -35,3 +35,27 @@ export function dedupById<T extends { id?: any; [key: string]: any }>(items: T[]
     return true;
   });
 }
+
+/**
+ * Recursively removes all undefined fields from an object or array.
+ * This is essential for Firestore setDoc / updateDoc operations which reject undefined values.
+ */
+export function cleanUndefined<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefined(item)) as unknown as T;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    // Preserve custom class instances (like Firestore FieldValue or Timestamp)
+    if (obj.constructor && obj.constructor.name !== 'Object') {
+      return obj;
+    }
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanUndefined(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}

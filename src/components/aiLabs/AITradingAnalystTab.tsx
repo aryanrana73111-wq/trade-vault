@@ -433,13 +433,33 @@ export const AITradingAnalystTab: React.FC<AITradingAnalystTabProps> = ({
                       </div>
                     </div>
 
-                    {/* Alternative explanation */}
-                    {obs.possibleAlternatives && obs.possibleAlternatives.length > 0 && (
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 italic">
-                        <strong className="font-semibold text-slate-600 dark:text-slate-300 not-italic">Alternative Explanation: </strong>
-                        {obs.possibleAlternatives[0]}
-                      </div>
-                    )}
+                    {/* Detailed Analysis */}
+                    <div className="space-y-2 mt-2">
+                      {obs.possibleAlternatives && obs.possibleAlternatives.length > 0 && (
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                          <strong className="font-semibold text-slate-700 dark:text-slate-300">POSSIBLE EXPLANATION: </strong>
+                          {obs.possibleAlternatives[0]}
+                        </div>
+                      )}
+                      {obs.counterEvidence && (
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                          <strong className="font-semibold text-slate-700 dark:text-slate-300">COUNTER-EVIDENCE: </strong>
+                          {obs.counterEvidence}
+                        </div>
+                      )}
+                      {obs.limitation && (
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                          <strong className="font-semibold text-slate-700 dark:text-slate-300">LIMITATION: </strong>
+                          {obs.limitation}
+                        </div>
+                      )}
+                      {obs.nextTest && (
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                          <strong className="font-semibold text-slate-700 dark:text-slate-300">NEXT TEST: </strong>
+                          {obs.nextTest}
+                        </div>
+                      )}
+                    </div>
 
                     {/* Coach Mode Reflections if applicable */}
                     {mode === 'coach' && obs.coachQuestions && obs.coachQuestions.length > 0 && (

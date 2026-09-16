@@ -45,19 +45,25 @@ export function calculateKPIs(trades: Trade[]) {
   let totalGrossProfit = 0;
   let totalGrossLoss = 0;
   let totalNetPnl = 0;
-  let totalRMultiple = 0;
   
   closedTrades.forEach(t => {
-    const pnl = t.pnl || 0;
+    const pnl = t.pnl !== undefined && t.pnl !== null ? Number(t.pnl) : 0;
     totalNetPnl += pnl;
     if (pnl > 0) totalGrossProfit += pnl;
     if (pnl < 0) totalGrossLoss += Math.abs(pnl);
-    
-    // R multiple logic
+  });
+
+  // Calculate R metrics only across trades that actually have valid R data
+  let totalRMultiple = 0;
+  let countTradesWithR = 0;
+  closedTrades.forEach(t => {
+    const pnl = t.pnl !== undefined && t.pnl !== null ? Number(t.pnl) : 0;
     if (t.rMultiple !== undefined && isFinite(t.rMultiple)) {
       totalRMultiple += t.rMultiple;
-    } else if (t.risk && t.risk > 0) {
-      totalRMultiple += (pnl / t.risk);
+      countTradesWithR++;
+    } else if (t.risk && Number(t.risk) > 0 && t.pnl !== undefined) {
+      totalRMultiple += (pnl / Number(t.risk));
+      countTradesWithR++;
     }
   });
 
@@ -73,13 +79,16 @@ export function calculateKPIs(trades: Trade[]) {
   }
 
   const expectancy = closedTrades.length > 0 ? totalNetPnl / closedTrades.length : 0;
-  const averageR = closedTrades.length > 0 ? totalRMultiple / closedTrades.length : 0;
+  const averageR = countTradesWithR > 0 ? totalRMultiple / countTradesWithR : 0;
   const totalTradesCount = trades.length; // all trades
   
   const averageWin = winningTrades.length > 0 ? totalGrossProfit / winningTrades.length : 0;
   const averageLoss = losingTrades.length > 0 ? totalGrossLoss / losingTrades.length : 0;
-  const averageRisk = closedTrades.length > 0 
-    ? closedTrades.reduce((acc, t) => acc + (t.risk || 0), 0) / closedTrades.length 
+
+  // Average risk only calculated over trades that specified risk
+  const tradesWithRisk = closedTrades.filter(t => t.risk !== undefined && t.risk !== null && Number(t.risk) > 0);
+  const averageRisk = tradesWithRisk.length > 0 
+    ? tradesWithRisk.reduce((acc, t) => acc + Number(t.risk), 0) / tradesWithRisk.length 
     : 0;
 
   // Simple Max Drawdown calculation (approximate from closed trades sequential PnL)
