@@ -93,7 +93,7 @@ export default function LearningRules() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] pb-5">
         <div>
           <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-semibold text-xs uppercase tracking-wider mb-1">
             <BookOpenCheck className="w-4 h-4" />
@@ -109,7 +109,7 @@ export default function LearningRules() {
 
         {/* Dashboard Isolation Badge */}
         {activeDashboard && (
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3.5 py-2 rounded-xl shadow-sm self-start md:self-auto">
+          <div className="flex items-center gap-3 glass-card px-3.5 py-2 rounded-xl shadow-xs self-start md:self-auto">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <div className="text-xs">
               <span className="text-slate-400 block text-[10px] uppercase font-semibold">Active Journal</span>
@@ -125,7 +125,7 @@ export default function LearningRules() {
       </div>
 
       {/* Unified Tab Switcher */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
+      <div className="flex border-b border-slate-200/80 dark:border-white/[0.08]">
         <button
           onClick={() => handleTabChange('learning')}
           className={cn(

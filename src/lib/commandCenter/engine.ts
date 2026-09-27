@@ -318,9 +318,9 @@ export function generateAttentionItems(
       sampleSize: incompletePsychTrades.length,
       tradeIds: incompletePsychTrades.map(t => t.id),
       investigateAction: {
-        type: 'psychology',
-        route: '/psychology',
-        label: 'Log Psychology in Workspace'
+        type: 'trades',
+        route: '/journal',
+        label: 'Review Incomplete Journal Entries'
       }
     });
   }
@@ -425,9 +425,9 @@ export function generateAttentionItems(
       sampleSize: fomoTrades.length,
       tradeIds: fomoTrades.map(t => t.id),
       investigateAction: {
-        type: 'psychology',
-        route: '/psychology',
-        label: 'Open Psychology Emotion Breakdown'
+        type: 'trades',
+        route: '/journal',
+        label: 'Inspect Trades in Journal'
       }
     });
   }
@@ -501,9 +501,9 @@ export function generateAttentionItems(
             baselineValue: `${Math.round(prevWinRate)}% (Previous ${prevClosed.length})`
           },
           investigateAction: {
-            type: 'ai_labs',
-            route: '/ai-labs?tab=analyst',
-            label: 'Run AI Period Comparison'
+            type: 'trades',
+            route: '/analytics',
+            label: 'Review Performance Analytics'
           }
         });
       }
@@ -766,7 +766,7 @@ export function generateRecentActivityTimeline(
         description: `Confidence: ${t.confidence ? t.confidence + '/10' : 'N/A'} • Adherence: ${t.ruleAdherence !== undefined ? t.ruleAdherence + '%' : 'N/A'} on ${t.market || 'trade'}`,
         timestamp: timestamp + 50,
         recordId: t.id || '',
-        route: `/psychology`,
+        route: `/journal`,
         badgeText: 'PSYCHOLOGY',
         badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
       });

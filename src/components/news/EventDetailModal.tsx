@@ -51,10 +51,6 @@ export function EventDetailModal({
         if (onOpenAcademy) onOpenAcademy();
         else navigate('/news?tab=academy');
       }}
-      onOpenAILabs={() => {
-        if (onOpenScenarioLab) onOpenScenarioLab(event.id);
-        else navigate('/ai-labs');
-      }}
       onSelectArticle={onSelectArticle}
       onSelectRelatedEvent={onSelectRelatedEvent}
     />

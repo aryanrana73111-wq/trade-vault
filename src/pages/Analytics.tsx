@@ -55,17 +55,17 @@ import {
 
 function StatCard({ title, value, icon, trend, tooltip, sampleSize }: { title: string, value: React.ReactNode, icon: React.ReactNode, trend: 'up' | 'down' | 'neutral' | 'none', tooltip?: string, sampleSize?: number }) {
   return (
-    <Card className="p-6 shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between h-32 relative overflow-hidden group hover:border-blue-200 transition-colors">
+    <Card className="p-6 flex flex-col justify-between h-32 relative overflow-hidden group hover:border-blue-400/40 dark:hover:border-blue-500/40 transition-all">
       <div className="flex justify-between items-start relative z-10">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</span>
           {tooltip && (
             <div className="group/tooltip relative">
               <Info className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500 cursor-help" />
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/tooltip:block w-48 p-2 bg-slate-800 text-white text-xs rounded shadow-lg z-50 pointer-events-none">
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/tooltip:block w-48 p-2 glass-modal text-slate-900 dark:text-slate-100 text-xs rounded-xl shadow-xl z-50 pointer-events-none">
                 {tooltip}
                 {sampleSize !== undefined && (
-                  <div className="mt-1 pt-1 border-t border-slate-700 font-mono">
+                  <div className="mt-1 pt-1 border-t border-slate-200/60 dark:border-white/[0.08] font-mono">
                     n = {sampleSize} trades
                   </div>
                 )}
@@ -73,7 +73,7 @@ function StatCard({ title, value, icon, trend, tooltip, sampleSize }: { title: s
             </div>
           )}
         </div>
-        <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
+        <div className="p-2 bg-blue-500/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-400 rounded-xl group-hover:bg-blue-500/15 transition-colors border border-blue-500/15">
           {icon}
         </div>
       </div>
@@ -153,10 +153,10 @@ function FilterDropdown({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border outline-none min-w-[140px]",
+          "flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border outline-none min-w-[140px] shadow-2xs",
           isActive 
-            ? "bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300" 
-            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600"
+            ? "bg-blue-50/80 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 shadow-xs" 
+            : "bg-white/70 dark:bg-slate-800/50 backdrop-blur-xs border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 hover:bg-white/90 dark:hover:bg-slate-800/80 hover:border-slate-300 dark:hover:border-white/[0.14]"
         )}
       >
         <span className="truncate flex-1 text-left">
@@ -183,7 +183,7 @@ function FilterDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1.5 min-w-[180px] w-max max-w-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-50 py-1 animate-in fade-in slide-in-from-top-2 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1.5 min-w-[180px] w-max max-w-xs glass-dropdown rounded-2xl shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 max-h-60 overflow-y-auto">
           {options.map(opt => (
             <button
               key={opt}
@@ -192,9 +192,10 @@ function FilterDropdown({
                 setIsOpen(false);
               }}
               className={cn(
-                "w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors",
-                value === opt ? "bg-blue-50/70 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-medium" : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                "w-full flex items-center justify-between px-4 py-2 text-sm text-left transition-colors rounded-lg mx-1 my-0.5",
+                value === opt ? "bg-blue-50/80 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-semibold" : "text-slate-700 dark:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-white/[0.06]"
               )}
+              style={{ width: 'calc(100% - 8px)' }}
             >
               <span className="truncate">{opt}</span>
               {value === opt && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 ml-2 shrink-0" />}
@@ -476,17 +477,17 @@ export default function Analytics() {
         <div className="relative shrink-0" ref={dateDropdownRef}>
           <button
             onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
-            className="w-full md:w-auto flex items-center justify-between gap-3 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-medium shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="w-full md:w-auto flex items-center justify-between gap-3 glass-card px-4 py-2.5 rounded-2xl font-medium shadow-xs hover:border-slate-300 dark:hover:border-white/[0.16] transition-all outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 text-slate-800 dark:text-slate-200"
           >
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-blue-600" />
+              <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>{dateRange}</span>
             </div>
             <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isDateDropdownOpen && "rotate-180")} />
           </button>
 
           {isDateDropdownOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 p-1.5">
+            <div className="absolute right-0 top-full mt-2 w-64 glass-dropdown rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 p-1.5">
               <div className="flex flex-col">
                 {DATE_OPTIONS.map((opt) => (
                   <button
@@ -496,25 +497,25 @@ export default function Analytics() {
                       if (opt !== 'Custom Range') setIsDateDropdownOpen(false);
                     }}
                     className={cn(
-                      "flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors text-left",
-                      dateRange === opt ? "bg-blue-50 text-blue-700 font-semibold" : "text-slate-700 hover:bg-slate-100"
+                      "flex items-center justify-between px-3 py-2 text-sm rounded-xl transition-colors text-left mx-1 my-0.5",
+                      dateRange === opt ? "bg-blue-50/80 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-semibold" : "text-slate-700 dark:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-white/[0.06]"
                     )}
                   >
                     {opt}
-                    {dateRange === opt && <Check className="w-4 h-4 text-blue-600" />}
+                    {dateRange === opt && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                   </button>
                 ))}
               </div>
 
               {dateRange === 'Custom Range' && (
-                <div className="p-3 mt-2 border-t border-slate-100 space-y-3 bg-slate-50/50 rounded-b-lg">
+                <div className="p-3 mt-2 border-t border-slate-200/60 dark:border-white/[0.08] space-y-3 bg-slate-50/50 dark:bg-slate-800/40 rounded-b-xl">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-500">Start Date</label>
                     <input 
                       type="date" 
                       value={customStart}
                       onChange={(e) => setCustomStart(e.target.value)}
-                      className="w-full text-sm p-2 rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-sm p-2 rounded-xl border border-slate-200/80 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -523,7 +524,7 @@ export default function Analytics() {
                       type="date" 
                       value={customEnd}
                       onChange={(e) => setCustomEnd(e.target.value)}
-                      className="w-full text-sm p-2 rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-sm p-2 rounded-xl border border-slate-200/80 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/80 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <Button 
@@ -542,7 +543,7 @@ export default function Analytics() {
       </div>
 
       {/* Filter Bar */}
-      <Card className="p-1 border border-slate-200 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-xl !overflow-visible overflow-visible relative z-30">
+      <Card className="p-1 !overflow-visible overflow-visible relative z-30">
         <div className="flex flex-col lg:flex-row lg:items-center gap-2 p-2 relative z-30 overflow-visible">
           
           <div className="flex items-center gap-2 px-2 py-1 text-slate-500 dark:text-slate-400">
@@ -677,13 +678,13 @@ export default function Analytics() {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-              <button onClick={() => handleSelectTab('overview')} className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${activeTab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Overview</button>
-              <button onClick={() => handleSelectTab('performance')} className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${activeTab === 'performance' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Performance</button>
-              <button onClick={() => handleSelectTab('tradeAnalysis')} className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${activeTab === 'tradeAnalysis' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Trade Analysis</button>
-              <button onClick={() => handleSelectTab('strategyResearch')} className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${activeTab === 'strategyResearch' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Strategy Research</button>
-              <button onClick={() => handleSelectTab('setupQuality')} className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${activeTab === 'setupQuality' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Setup Quality</button>
-              <button onClick={() => handleSelectTab('behavioral')} className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${activeTab === 'behavioral' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>Behavioral Analytics</button>
+            <div className="flex items-center gap-1.5 p-1.5 glass-nav rounded-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-x-auto shadow-2xs">
+              <button onClick={() => handleSelectTab('overview')} className={cn("px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap", activeTab === 'overview' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]')}>Overview</button>
+              <button onClick={() => handleSelectTab('performance')} className={cn("px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap", activeTab === 'performance' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]')}>Performance</button>
+              <button onClick={() => handleSelectTab('tradeAnalysis')} className={cn("px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap", activeTab === 'tradeAnalysis' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]')}>Trade Analysis</button>
+              <button onClick={() => handleSelectTab('strategyResearch')} className={cn("px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap", activeTab === 'strategyResearch' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]')}>Strategy Research</button>
+              <button onClick={() => handleSelectTab('setupQuality')} className={cn("px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap", activeTab === 'setupQuality' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]')}>Setup Quality</button>
+              <button onClick={() => handleSelectTab('behavioral')} className={cn("px-4 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap", activeTab === 'behavioral' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]')}>Behavioral Analytics</button>
             </div>
 
             {activeTab === 'overview' && <OverviewTab trades={filteredTrades} metrics={kpis} onOpenEvidence={handleOpenEvidence} />}

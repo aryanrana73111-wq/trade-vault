@@ -10,14 +10,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="relative w-full">
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
             {icon}
           </div>
         )}
         <input
           type={type}
           className={cn(
-            'flex h-10 w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-background)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--input-focus)] focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow',
+            'flex h-10 w-full rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/35 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-xs',
             icon && 'pl-10',
             className
           )}
@@ -40,7 +40,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       <select
         ref={ref}
         className={cn(
-          'flex h-10 w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-background)] px-3 py-2 text-sm text-[var(--input-text)] focus:outline-none focus:ring-2 focus:ring-[var(--input-focus)] focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow',
+          'flex h-10 w-full rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md px-3 py-2 text-sm text-[var(--input-text)] focus:outline-none focus:ring-2 focus:ring-blue-500/35 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-xs',
           className
         )}
         {...props}
@@ -70,7 +70,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <textarea
         className={cn(
-          'flex min-h-[80px] w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-background)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--input-focus)] focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-shadow resize-y',
+          'flex min-h-[80px] w-full rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/35 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all shadow-xs resize-y',
           className
         )}
         ref={ref}
@@ -81,9 +81,25 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 );
 Textarea.displayName = 'Textarea';
 
-export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm overflow-hidden', className)} {...props} />
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: 'glass' | 'solid' | 'subtle';
+  interactive?: boolean;
+}
+
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant = 'glass', interactive = false, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        'rounded-2xl transition-all duration-200 text-slate-900 dark:text-slate-100 overflow-hidden',
+        variant === 'glass' && 'bg-white/78 dark:bg-slate-900/68 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.08] shadow-[0_4px_20px_-2px_rgba(15,23,42,0.04)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] hover:border-slate-300/90 dark:hover:border-white/[0.14]',
+        variant === 'solid' && 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm',
+        variant === 'subtle' && 'bg-slate-50/70 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/60 dark:border-white/[0.05]',
+        interactive && 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0',
+        className
+      )}
+      {...props}
+    />
   )
 );
 Card.displayName = 'Card';
@@ -93,13 +109,13 @@ export const Badge = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
     <div
       ref={ref}
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2',
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold backdrop-blur-xs transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2',
         {
-          'border-transparent bg-blue-100 text-blue-800': variant === 'default',
-          'border-transparent bg-green-100 text-green-800': variant === 'success',
-          'border-transparent bg-red-100 text-red-800': variant === 'danger',
-          'border-transparent bg-amber-100 text-amber-800': variant === 'warning',
-          'border-slate-200 bg-slate-100 text-slate-800': variant === 'neutral',
+          'border-blue-200/70 dark:border-blue-500/30 bg-blue-50/85 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300': variant === 'default',
+          'border-emerald-200/70 dark:border-emerald-500/30 bg-emerald-50/85 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300': variant === 'success',
+          'border-rose-200/70 dark:border-rose-500/30 bg-rose-50/85 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300': variant === 'danger',
+          'border-amber-200/70 dark:border-amber-500/30 bg-amber-50/85 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300': variant === 'warning',
+          'border-slate-200/80 dark:border-white/[0.08] bg-slate-100/80 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300': variant === 'neutral',
         },
         className
       )}

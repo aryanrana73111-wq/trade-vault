@@ -1,11 +1,9 @@
 import React from 'react';
 import { 
   FileText, 
-  Brain, 
   BookOpenCheck, 
   ShieldCheck, 
   Target, 
-  Sparkles, 
   ArrowRight,
   Workflow
 } from 'lucide-react';
@@ -14,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 interface ConnectedWorkflowBannerProps {
   counts: {
     trades: number;
-    psychology: number;
+    psychology?: number;
     learnings: number;
     rules: number;
     strategies: number;
@@ -35,17 +33,8 @@ export const ConnectedWorkflowBanner: React.FC<ConnectedWorkflowBannerProps> = (
       color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800'
     },
     {
-      id: 'psychology',
-      label: '2. Psychology',
-      count: counts.psychology,
-      sub: 'Emotions & Bias',
-      route: '/psychology',
-      icon: Brain,
-      color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800'
-    },
-    {
       id: 'learning',
-      label: '3. Learnings',
+      label: '2. Learnings',
       count: counts.learnings,
       sub: 'Key Discoveries',
       route: '/learning-rules?tab=learning',
@@ -54,7 +43,7 @@ export const ConnectedWorkflowBanner: React.FC<ConnectedWorkflowBannerProps> = (
     },
     {
       id: 'rules',
-      label: '4. Trading Rules',
+      label: '3. Trading Rules',
       count: counts.rules,
       sub: 'Discipline Mandates',
       route: '/learning-rules?tab=rules',
@@ -63,21 +52,12 @@ export const ConnectedWorkflowBanner: React.FC<ConnectedWorkflowBannerProps> = (
     },
     {
       id: 'strategy',
-      label: '5. Strategies',
+      label: '4. Strategies',
       count: counts.strategies,
       sub: 'Edge & Setups',
       route: '/strategies',
       icon: Target,
       color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800'
-    },
-    {
-      id: 'ai_labs',
-      label: '6. AI & Research',
-      count: 'Labs',
-      sub: 'Evidence Analysis',
-      route: '/ai-labs',
-      icon: Sparkles,
-      color: 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/50 border-cyan-200 dark:border-cyan-800'
     }
   ];
 

@@ -8,13 +8,14 @@ import { Trade, Market, Direction, Session, Emotion, Timeframe, MarketCondition,
 import { cn, formatCurrency } from '@/lib/utils';
 import { calculateTradeMetrics } from '@/lib/calculations';
 import { compressImageToDataUrl } from '@/lib/avatarStorage';
-import { UploadCloud, CheckCircle2, X, AlertTriangle, GraduationCap, Newspaper, Swords, Trophy } from 'lucide-react';
+import { UploadCloud, CheckCircle2, X, AlertTriangle, Newspaper, Swords, Trophy, Zap, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { NEWS_EVENTS } from '@/data/newsIntelligenceData';
 import { useArena } from '@/contexts/ArenaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { addCompetitionTrade } from '@/lib/arenaService';
 import { MarketSelector } from '@/components/common/MarketSelector';
+import { ConnectMT5Section } from '@/components/mt5/ConnectMT5Section';
 
 export interface AddTradeProps {
   onSuccess?: (savedTrade: Trade) => void;
@@ -79,9 +80,15 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
   const [showToast, setShowToast] = useState(false);
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({});
   const [prefilledFromCalculator, setPrefilledFromCalculator] = useState(false);
-  const [academySource, setAcademySource] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const location = useLocation();
+
+  const [entryMode, setEntryMode] = useState<'manual' | 'mt5'>(() => {
+    if (location.state?.mode === 'mt5' || new URLSearchParams(location.search).get('tab') === 'mt5') {
+      return 'mt5';
+    }
+    return 'manual';
+  });
 
   const { user } = useAuth();
   const { arenas } = useArena();
@@ -119,9 +126,6 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         newsEventName: np.name || '',
         newsImpact: np.impact || '',
       }));
-    }
-    if (location.state?.academySource) {
-      setAcademySource(location.state.academySource);
     }
   }, [location.state]);
 
@@ -410,7 +414,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Add New Trade</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Enter trade details and review behavioral metrics directly in Psychology</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Enter trade details, risk parameters, and execution metrics</p>
           </div>
           <button
             type="button"
@@ -428,29 +432,50 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         </div>
       )}
 
-      {academySource && (
-        <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 rounded-xl flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-100 animate-in fade-in duration-150 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <GraduationCap className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
-            <div>
-              <span className="font-bold block">TradeVault Academy Execution Drill</span>
-              <span className="text-indigo-700 dark:text-indigo-300">
-                Drill context: {academySource} • Maintain strict invariant 1% risk and pre-planned technical invalidation.
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setAcademySource(null)}
-            className="p-1 rounded-md text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
-            title="Dismiss"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Mode Selector: Manual Trade vs Connect MT5 */}
+      <div className="mb-8 p-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-2 max-w-md shadow-xs">
+        <button
+          type="button"
+          onClick={() => setEntryMode('manual')}
+          className={cn(
+            "flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2",
+            entryMode === 'manual'
+              ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/80 dark:border-slate-700"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+          )}
+        >
+          <Plus className="w-4 h-4" />
+          <span>Manual Trade</span>
+        </button>
 
-      {prefilledFromCalculator && (
+        <button
+          type="button"
+          onClick={() => setEntryMode('mt5')}
+          className={cn(
+            "flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2",
+            entryMode === 'mt5'
+              ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/80 dark:border-slate-700"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+          )}
+        >
+          <Zap className="w-4 h-4" />
+          <span>Connect MT5</span>
+          <span className="text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.5 rounded ml-1">
+            Auto
+          </span>
+        </button>
+      </div>
+
+      {entryMode === 'mt5' ? (
+        <ConnectMT5Section
+          onSwitchToManual={() => setEntryMode('manual')}
+          onTradeImported={() => {
+            if (onSuccess) onSuccess({} as any);
+          }}
+        />
+      ) : (
+        <>
+          {prefilledFromCalculator && (
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl flex items-center justify-between text-xs text-blue-900 dark:text-blue-100 animate-in fade-in duration-150 shadow-sm">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -476,7 +501,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         
         {/* Date & Time */}
         <Card className="p-8 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Trade Date & Time</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">Trade Date & Time</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
               <Label className="text-base">Date</Label>
@@ -509,10 +534,10 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, direction: 'BUY' }))}
                   className={cn(
-                    "flex-1 h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "flex-1 h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.direction === 'BUY' 
-                      ? 'border-green-500 bg-green-500 text-white shadow-md shadow-green-200'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-green-200 hover:bg-green-50'
+                      ? 'border-emerald-500 bg-emerald-500 text-white shadow-xs'
+                      : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-600 dark:text-slate-400 hover:border-emerald-500/40 hover:bg-emerald-500/10'
                   )}
                 >
                   BUY (LONG)
@@ -521,10 +546,10 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, direction: 'SELL' }))}
                   className={cn(
-                    "flex-1 h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "flex-1 h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.direction === 'SELL' 
-                      ? 'border-red-500 bg-red-500 text-white shadow-md shadow-red-200'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50'
+                      ? 'border-rose-500 bg-rose-500 text-white shadow-xs'
+                      : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-600 dark:text-slate-400 hover:border-rose-500/40 hover:bg-rose-500/10'
                   )}
                 >
                   SELL (SHORT)
@@ -537,7 +562,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         {/* Trade Parameters & Calculations */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="p-8 shadow-sm lg:col-span-2">
-            <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Execution Details</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">Execution Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Entry Price</Label>
@@ -572,7 +597,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
             )}
           </Card>
 
-          <Card className="p-6 shadow-sm bg-slate-900 text-white flex flex-col justify-center">
+          <Card className="p-6 shadow-sm bg-slate-900/90 dark:bg-slate-900/70 border-slate-700/50 backdrop-blur-md text-white flex flex-col justify-center">
             <h3 className="text-sm font-medium text-slate-400 mb-6 uppercase tracking-wider">Auto Calculations</h3>
             <div className="space-y-6">
               <div>
@@ -584,11 +609,11 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
               <div className="pt-4 border-t border-slate-800 grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-slate-400 text-sm mb-1">Pot. Loss</p>
-                  <p className="text-lg font-semibold text-red-400">{calc.potentialLoss > 0 ? formatCurrency(calc.potentialLoss) : '-'}</p>
+                  <p className="text-lg font-semibold text-rose-400">{calc.potentialLoss > 0 ? formatCurrency(calc.potentialLoss) : '-'}</p>
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm mb-1">Pot. Profit</p>
-                  <p className="text-lg font-semibold text-green-400">{calc.potentialProfit > 0 ? formatCurrency(calc.potentialProfit) : '-'}</p>
+                  <p className="text-lg font-semibold text-emerald-400">{calc.potentialProfit > 0 ? formatCurrency(calc.potentialProfit) : '-'}</p>
                 </div>
               </div>
             </div>
@@ -597,17 +622,17 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
 
         {/* Strategy & Context */}
         <Card className="p-8 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Context & Strategy</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">Context & Strategy</h3>
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label className="text-base text-slate-800 font-semibold">Strategy</Label>
+                <Label className="text-base text-slate-800 dark:text-slate-200 font-semibold">Strategy</Label>
                 {strategies.length > 0 ? (
                   <select 
                     name="strategy" 
                     value={formData.strategy} 
                     onChange={handleInputChange} 
-                    className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex h-11 w-full rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Strategy...</option>
                     {strategies.map(s => (
@@ -622,21 +647,21 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs text-slate-500 font-semibold">Session</Label>
-                  <select name="session" value={formData.session} onChange={handleInputChange} className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select name="session" value={formData.session} onChange={handleInputChange} className="flex h-11 w-full rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="" disabled>Select...</option>
                     {['Asian', 'London', 'New York', 'Sydney'].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-slate-500 font-semibold">Timeframe</Label>
-                  <select name="timeframe" value={formData.timeframe} onChange={handleInputChange} className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select name="timeframe" value={formData.timeframe} onChange={handleInputChange} className="flex h-11 w-full rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="" disabled>Select...</option>
                     {['1m', '3m', '5m', '15m', '30m', '1H', '4H', 'Daily', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-slate-500 font-semibold">Condition</Label>
-                  <select name="marketCondition" value={formData.marketCondition} onChange={handleInputChange} className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select name="marketCondition" value={formData.marketCondition} onChange={handleInputChange} className="flex h-11 w-full rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="" disabled>Select...</option>
                     {['Trending', 'Ranging', 'Breakout', 'Reversal', 'Choppy', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -645,9 +670,9 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
             </div>
 
             {selectedStrategyObj && selectedStrategyObj.checklist.length > 0 && (
-              <div className="p-5 bg-slate-50 border border-slate-100 rounded-xl">
+              <div className="p-5 bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-white/[0.08] backdrop-blur-xs rounded-xl">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-slate-900">Strategy Checklist</h4>
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Strategy Checklist</h4>
                   <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">
                     {Object.values(checklistState).filter(Boolean).length} / {selectedStrategyObj.checklist.length} completed
                   </span>
@@ -973,7 +998,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
 
         {/* Notes & Learning */}
         <Card className="p-8 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Review & Result</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">Review & Result</h3>
           <div className="space-y-8">
             <div className="space-y-3">
               <Label className="text-base">Trade Result (Optional)</Label>
@@ -982,10 +1007,10 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'WIN' ? '' : 'WIN' }))}
                   className={cn(
-                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'WIN' 
-                      ? 'border-green-500 bg-green-500 text-white shadow-md shadow-green-200'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-green-200 hover:bg-green-50'
+                      ? 'border-emerald-500 bg-emerald-500 text-white shadow-xs'
+                      : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-600 dark:text-slate-400 hover:border-emerald-500/40 hover:bg-emerald-500/10'
                   )}
                 >
                   WIN
@@ -994,10 +1019,10 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'LOSS' ? '' : 'LOSS' }))}
                   className={cn(
-                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'LOSS' 
-                      ? 'border-red-500 bg-red-500 text-white shadow-md shadow-red-200'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50'
+                      ? 'border-rose-500 bg-rose-500 text-white shadow-xs'
+                      : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-600 dark:text-slate-400 hover:border-rose-500/40 hover:bg-rose-500/10'
                   )}
                 >
                   LOSS
@@ -1006,10 +1031,10 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'BREAK EVEN' ? '' : 'BREAK EVEN', pnl: '0' }))}
                   className={cn(
-                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'BREAK EVEN' 
-                      ? 'border-blue-500 bg-blue-500 text-white shadow-md shadow-blue-200'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:bg-blue-50'
+                      ? 'border-blue-500 bg-blue-500 text-white shadow-xs'
+                      : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-600 dark:text-slate-400 hover:border-blue-500/40 hover:bg-blue-500/10'
                   )}
                 >
                   BREAK EVEN
@@ -1018,10 +1043,10 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'PENDING' ? '' : 'PENDING' }))}
                   className={cn(
-                    "h-11 rounded-lg font-bold text-sm transition-all border-2",
+                    "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'PENDING' 
-                      ? 'border-yellow-500 bg-yellow-500 text-white shadow-md shadow-yellow-200'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-yellow-300 hover:bg-yellow-50'
+                      ? 'border-amber-500 bg-amber-500 text-white shadow-xs'
+                      : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-600 dark:text-slate-400 hover:border-amber-500/40 hover:bg-amber-500/10'
                   )}
                 >
                   PENDING
@@ -1045,23 +1070,23 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
               </div>
             )}
             {formData.result === 'PENDING' && (
-              <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 backdrop-blur-xs">
                 Result is pending. Realized P&L will not be calculated.
               </div>
             )}
 
-            <div className="space-y-6 pt-4 border-t border-slate-100">
+            <div className="space-y-6 pt-4 border-t border-slate-200/80 dark:border-white/[0.08]">
               <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea name="notes" value={formData.notes} onChange={handleInputChange} placeholder="Why did you take this trade?" />
               </div>
               <div className="space-y-2">
-                <Label className="text-red-600">What mistake did I make?</Label>
-                <Textarea name="mistake" value={formData.mistake} onChange={handleInputChange} placeholder="Entered too early, moved SL, overtraded..." className="focus:ring-red-500" />
+                <Label className="text-rose-600 dark:text-rose-400">What mistake did I make?</Label>
+                <Textarea name="mistake" value={formData.mistake} onChange={handleInputChange} placeholder="Entered too early, moved SL, overtraded..." className="focus:ring-rose-500" />
               </div>
               <div className="space-y-2">
-                <Label className="text-green-600">What did I learn from this trade?</Label>
-                <Textarea name="learning" value={formData.learning} onChange={handleInputChange} placeholder="What will you do differently next time?" className="focus:ring-green-500" />
+                <Label className="text-emerald-600 dark:text-emerald-400">What did I learn from this trade?</Label>
+                <Textarea name="learning" value={formData.learning} onChange={handleInputChange} placeholder="What will you do differently next time?" className="focus:ring-emerald-500" />
               </div>
             </div>
           </div>
@@ -1165,7 +1190,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
               </Button>
             )}
             <Button type="submit" size="lg" disabled={isSubmitting || !formData.market || !formData.entry} className="w-full sm:w-auto min-w-[160px]">
-              Save & View Psychology
+              Save Trade
             </Button>
           </div>
         ) : (
@@ -1179,6 +1204,8 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
           </div>
         )}
       </form>
+      </>
+      )}
 
       {/* Toast Notification */}
       {showToast && (

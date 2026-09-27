@@ -23,10 +23,10 @@ export function HighImpactNewsWidget() {
     .slice(0, 4);
 
   return (
-    <Card className="p-4 sm:p-6 shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 w-full min-w-0">
+    <Card className="p-4 sm:p-6 w-full min-w-0">
       <div className="flex items-center justify-between mb-4 gap-2 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
+          <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/15 shrink-0">
             <Flame className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -51,7 +51,7 @@ export function HighImpactNewsWidget() {
             <div
               key={ev.id}
               onClick={() => navigate(`/news?tab=calendar&eventId=${ev.id}`)}
-              className="p-2.5 sm:p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-700 transition-all cursor-pointer flex items-center justify-between gap-2 sm:gap-3 group min-w-0"
+              className="p-2.5 sm:p-3 rounded-xl border border-slate-200/60 dark:border-white/[0.06] bg-slate-50/50 dark:bg-slate-800/30 hover:bg-white/80 dark:hover:bg-slate-800/60 hover:border-blue-300 dark:hover:border-blue-700 transition-all cursor-pointer flex items-center justify-between gap-2 sm:gap-3 group min-w-0"
             >
               <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                 <span className="text-base sm:text-lg shrink-0">

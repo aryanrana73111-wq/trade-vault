@@ -233,9 +233,9 @@ export const MacroMarketIntelligenceWidget: React.FC<MacroMarketIntelligenceWidg
         {activeSubTab === 'news' ? (
           /* News Feed Subtab */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {allNews.map(article => (
+            {allNews.map((article, idx) => (
               <div
-                key={article.id}
+                key={`${article.id}-${idx}`}
                 onClick={() => navigate('/news')}
                 className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 bg-white dark:bg-slate-900/60 cursor-pointer transition-all flex flex-col justify-between group"
               >

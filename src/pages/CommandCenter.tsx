@@ -43,7 +43,7 @@ import { PinnedItemsWidget } from '@/components/commandCenter/PinnedItemsWidget'
 import { RecentActivityTimelineWidget } from '@/components/commandCenter/RecentActivityTimelineWidget';
 import { ConnectedWorkflowBanner } from '@/components/commandCenter/ConnectedWorkflowBanner';
 import { LayoutCustomizerModal } from '@/components/commandCenter/LayoutCustomizerModal';
-import { EvidenceDrawer } from '@/components/aiLabs/EvidenceDrawer';
+import { EvidenceDrawer } from '@/components/commandCenter/EvidenceDrawer';
 import { MacroMarketIntelligenceWidget } from '@/components/commandCenter/MacroMarketIntelligenceWidget';
 import { EventDetailModal } from '@/components/news/EventDetailModal';
 import { MyAlertsModal } from '@/components/news/MyAlertsModal';
@@ -548,10 +548,10 @@ const CommandCenterView: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 pt-2 animate-in fade-in">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] pb-5">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+            <span className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/15">
               <Compass className="w-6 h-6" />
             </span>
             <div>
@@ -559,7 +559,7 @@ const CommandCenterView: React.FC = () => {
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                   Trading Command Center
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
                   Live Operations
                 </span>
               </div>
@@ -573,13 +573,13 @@ const CommandCenterView: React.FC = () => {
         {/* Global Controls: Time Range & Layout Customizer */}
         <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
           {/* Read-Only Badge */}
-          <div className="flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 text-xs bg-white/70 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
             <span className="hidden sm:inline">Read-Only</span>
           </div>
 
           {/* Time Range Selector */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          <div className="flex items-center bg-slate-100/80 dark:bg-slate-800/60 p-0.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08]">
             {(['today', '7d', '30d', '90d', 'all'] as CommandCenterTimeRange[]).map((r) => {
               const labels: Record<CommandCenterTimeRange, string> = {
                 today: 'Today',
@@ -594,7 +594,7 @@ const CommandCenterView: React.FC = () => {
                   onClick={() => setTimeRange(r)}
                   className={`px-2.5 py-1 text-xs rounded-lg font-semibold transition-all ${
                     timeRange === r
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                      ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -607,7 +607,7 @@ const CommandCenterView: React.FC = () => {
           {/* Customize Workspace Button */}
           <button
             onClick={() => setIsCustomizerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] hover:bg-white dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs transition-colors cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Customize</span>
@@ -617,7 +617,7 @@ const CommandCenterView: React.FC = () => {
 
       {/* Empty State if 0 trades recorded */}
       {safeTrades.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="p-12 text-center glass-card rounded-2xl shadow-xs space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
             <Compass className="w-8 h-8" />
           </div>

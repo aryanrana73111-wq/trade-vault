@@ -30,11 +30,11 @@ interface QuickInvestigationBarProps {
 
 const SUGGESTIONS = [
   'Show my last 10 XAU/USD London trades',
-  'Show FOMO trades',
+  'Show winning trades above 2R',
   'Show trades where risk exceeded 1%',
-  'Show recent losing trades with incomplete psychology',
+  'Show recent losing trades',
   'Show London session trades',
-  'Show Revenge trading trades'
+  'Show trades with strategy tagged'
 ];
 
 export const QuickInvestigationBar: React.FC<QuickInvestigationBarProps> = ({
@@ -86,7 +86,7 @@ export const QuickInvestigationBar: React.FC<QuickInvestigationBarProps> = ({
               Quick Investigation & Deep Search
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Inspect subsets of your recorded history across trades, psychology, strategies, rules, and learnings.
+              Inspect subsets of your recorded history across trades, strategies, rules, and learnings.
             </p>
           </div>
         </div>

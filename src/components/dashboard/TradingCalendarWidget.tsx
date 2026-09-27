@@ -279,11 +279,11 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
-    <Card className={`p-4 sm:p-6 shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all w-full min-w-0 ${className}`}>
+    <Card className={`p-4 sm:p-6 transition-all w-full min-w-0 ${className}`}>
       {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-4 sm:pb-5 border-b border-slate-100 dark:border-slate-800 min-w-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-4 sm:pb-5 border-b border-slate-200/60 dark:border-white/[0.08] min-w-0">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 dark:border-blue-900/50 shrink-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/15 shrink-0">
             <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
@@ -291,7 +291,7 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
               <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
                 Trading Calendar
               </h2>
-              <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-white/[0.06] shrink-0">
                 Daily Activity
               </span>
             </div>
@@ -304,12 +304,12 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
         {/* Month Navigation & Controls */}
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Metric Toggle */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+          <div className="flex items-center bg-slate-100/80 dark:bg-slate-800/60 p-0.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold">
             <button
               onClick={() => setMetricMode('pnl')}
-              className={`px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer min-h-[32px] ${
+              className={`px-2 sm:px-2.5 py-1 rounded-lg transition-all cursor-pointer min-h-[30px] ${
                 metricMode === 'pnl'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
@@ -317,9 +317,9 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
             </button>
             <button
               onClick={() => setMetricMode('rmultiple')}
-              className={`px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer min-h-[32px] ${
+              className={`px-2 sm:px-2.5 py-1 rounded-lg transition-all cursor-pointer min-h-[30px] ${
                 metricMode === 'rmultiple'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
@@ -327,9 +327,9 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
             </button>
             <button
               onClick={() => setMetricMode('winloss')}
-              className={`px-2 sm:px-2.5 py-1 rounded-md transition-all cursor-pointer min-h-[32px] ${
+              className={`px-2 sm:px-2.5 py-1 rounded-lg transition-all cursor-pointer min-h-[30px] ${
                 metricMode === 'winloss'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
@@ -338,23 +338,23 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
           </div>
 
           {/* Month Stepper */}
-          <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-0.5 bg-white/70 dark:bg-slate-800/60 p-0.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08]">
             <button
               onClick={handlePrevMonth}
               aria-label="Previous Month"
-              className="p-1 rounded-md hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer min-h-[32px] min-w-[30px] flex items-center justify-center"
+              className="p-1 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer min-h-[30px] min-w-[30px] flex items-center justify-center"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
 
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-1.5 min-w-[85px] sm:min-w-[100px] text-center select-none truncate">
-              {format(currentMonth, 'MMM yyyy')}
+              {format(currentMonth, 'MMMM yyyy')}
             </span>
 
             <button
               onClick={handleNextMonth}
               aria-label="Next Month"
-              className="p-1 rounded-md hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer min-h-[32px] min-w-[30px] flex items-center justify-center"
+              className="p-1 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer min-h-[30px] min-w-[30px] flex items-center justify-center"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -363,7 +363,7 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
           {/* Today Button */}
           <button
             onClick={handleToday}
-            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700 min-h-[32px]"
+            className="px-2.5 py-1 text-xs font-semibold rounded-xl bg-white/70 hover:bg-white dark:bg-slate-800/60 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer border border-slate-200/80 dark:border-white/[0.08] min-h-[32px]"
           >
             Today
           </button>
@@ -371,10 +371,10 @@ export const TradingCalendarWidget: React.FC<TradingCalendarWidgetProps> = ({ tr
           {/* Toggle Weekly Totals */}
           <button
             onClick={() => setShowWeeklyTotals(!showWeeklyTotals)}
-            className={`p-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 min-h-[32px] ${
+            className={`p-1.5 rounded-xl border text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 min-h-[32px] ${
               showWeeklyTotals
-                ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/60 dark:border-blue-800 dark:text-blue-300'
-                : 'bg-white border-slate-200 text-slate-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400'
+                ? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-300'
+                : 'bg-white/70 border-slate-200/80 text-slate-600 dark:bg-slate-800/60 dark:border-white/[0.08] dark:text-slate-400'
             }`}
             title="Toggle Weekly Totals Column"
           >

@@ -307,10 +307,10 @@ export default function RiskCalculator() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Top Header & Context Badges */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400">
+            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/15">
               <Calculator className="w-5 h-5" />
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
@@ -323,7 +323,7 @@ export default function RiskCalculator() {
         </div>
 
         {/* Active Account / Balance Pill */}
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 px-4 shadow-sm self-start md:self-auto">
+        <div className="glass-card flex items-center gap-3 rounded-2xl p-2.5 px-4 shadow-xs self-start md:self-auto">
           <div className="flex flex-col">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
               Active Dashboard Balance
@@ -332,7 +332,7 @@ export default function RiskCalculator() {
               <span className="text-sm font-black text-slate-900 dark:text-slate-100 font-mono">
                 {accountCurrency} {accountBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-medium">
                 {activeDashboard?.name || 'Default'}
               </span>
             </div>
@@ -351,9 +351,9 @@ export default function RiskCalculator() {
 
       {/* Informational Macro Event Advisory */}
       {imminentMacroEvents.length > 0 && (
-        <div className="p-4 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/10 backdrop-blur-xs shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+            <div className="p-2 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
               <Flame className="w-4 h-4" />
             </div>
             <div>
@@ -361,7 +361,7 @@ export default function RiskCalculator() {
                 <span className="text-xs font-bold text-amber-950 dark:text-amber-100">
                   Macro Catalyst Advisory for {instrument.symbol}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-amber-200/70 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-amber-500/20 text-amber-800 dark:text-amber-200">
                   High Volatility Scheduled
                 </span>
               </div>
@@ -396,7 +396,7 @@ export default function RiskCalculator() {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1">
+      <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-white/[0.08] pb-1">
         <button
           type="button"
           onClick={() => setActiveTab('calculator')}

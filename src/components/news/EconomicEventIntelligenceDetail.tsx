@@ -19,7 +19,6 @@ import { ConfigureAlertModal } from './calendar/ConfigureAlertModal';
 import { RevisionDetailsPopover } from './calendar/RevisionDetailsPopover';
 import { 
   GraduationCap, 
-  FlaskConical, 
   LayoutDashboard, 
   ShieldCheck, 
   ExternalLink,
@@ -36,7 +35,6 @@ export interface EconomicEventIntelligenceDetailProps {
   isWatchlisted?: boolean;
   onToggleWatchlist?: (eventId: string) => void;
   onOpenAcademy?: () => void;
-  onOpenAILabs?: () => void;
   onSelectArticle?: (article: MarketNewsArticle) => void;
   onSelectRelatedEvent?: (eventId: string) => void;
 }
@@ -50,7 +48,6 @@ export function EconomicEventIntelligenceDetail({
   isWatchlisted = false,
   onToggleWatchlist,
   onOpenAcademy,
-  onOpenAILabs,
   onSelectArticle,
   onSelectRelatedEvent
 }: EconomicEventIntelligenceDetailProps) {
@@ -218,27 +215,6 @@ export function EconomicEventIntelligenceDetail({
                       </div>
                     </div>
                     <span className="text-blue-600 dark:text-blue-400 font-bold">→</span>
-                  </button>
-                )}
-
-                {onOpenAILabs && (
-                  <button
-                    type="button"
-                    onClick={onOpenAILabs}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-purple-500/50 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 text-left transition-all flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <FlaskConical className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                      <div>
-                        <strong className="text-slate-900 dark:text-white block font-bold">
-                          AI & Quant Labs
-                        </strong>
-                        <span className="text-[11px] text-slate-500">
-                          Hypothesis simulation & backtest
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-purple-600 dark:text-purple-400 font-bold">→</span>
                   </button>
                 )}
               </div>

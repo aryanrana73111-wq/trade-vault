@@ -180,20 +180,20 @@ export function TradeDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
       <div 
-        className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden"
+        className="relative w-full max-w-3xl glass-modal rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/70 dark:border-white/[0.08] bg-slate-50/70 dark:bg-slate-900/60 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className={cn(
-              "px-3 py-1.5 rounded-xl font-black text-sm uppercase tracking-wide flex items-center gap-1",
+              "px-3 py-1.5 rounded-xl font-black text-sm uppercase tracking-wide flex items-center gap-1 shadow-2xs",
               trade.direction === 'BUY'
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300"
-                : "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300"
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60"
+                : "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60"
             )}>
               {trade.direction === 'BUY' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
               <span>{trade.direction}</span>
@@ -230,7 +230,7 @@ export function TradeDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100/80 dark:hover:bg-white/[0.06] transition-colors"
               title="Close modal"
             >
               <X className="w-5 h-5" />
@@ -239,7 +239,7 @@ export function TradeDetailModal({
         </div>
 
         {/* Completeness Bar */}
-        <div className="px-6 py-3 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+        <div className="px-6 py-3 bg-slate-100/60 dark:bg-slate-850/50 border-b border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between text-xs backdrop-blur-xs">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-700 dark:text-slate-300">
               Journal Completeness:
@@ -275,10 +275,10 @@ export function TradeDetailModal({
         </div>
 
         {/* Scrollable Body with the 9 Structured Sections */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 text-sm">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5 text-sm">
           
           {/* 1. TRADE SUMMARY */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-xs">
+          <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 bg-white/70 dark:bg-slate-850/60 backdrop-blur-md shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
                 <span>1. Trade Summary</span>

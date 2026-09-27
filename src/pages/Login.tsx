@@ -24,11 +24,15 @@ interface GoogleNoticeState {
   reason: 'login_attempt' | 'signup_attempt';
 }
 
-export default function Login() {
+interface LoginProps {
+  defaultSignUp?: boolean;
+}
+
+export default function Login({ defaultSignUp = false }: LoginProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(defaultSignUp);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,11 +44,12 @@ export default function Login() {
   const [googleNotice, setGoogleNotice] = useState<GoogleNoticeState | null>(null);
   const [invalidCredentialHelp, setInvalidCredentialHelp] = useState<string | null>(null);
   const [linkingPassword, setLinkingPassword] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
-  // If already authenticated, redirect to home immediately
+  // If already authenticated, redirect to Welcome Home immediately
   useEffect(() => {
     if (user) {
-      navigate('/', { replace: true });
+      navigate('/home', { replace: true });
     }
   }, [user, navigate]);
 
@@ -89,13 +94,13 @@ export default function Login() {
         } catch (vErr) {
           console.warn('Post-signup verification email note:', vErr);
         }
-        navigate('/');
+        navigate('/home');
       } catch (err: any) {
         if (err.code === 'auth/email-already-in-use') {
           // Account already exists. Attempt direct sign in with the provided password!
           try {
             await signInWithEmailAndPassword(auth, cleanEmail, password);
-            navigate('/');
+            navigate('/home');
             return;
           } catch (signInErr: any) {
             // Check if created with Google
@@ -162,7 +167,7 @@ export default function Login() {
             });
           } catch {}
         }
-        navigate('/');
+        navigate('/home');
       } catch (err: any) {
         // Check if user signed up via Google
         let isGoogleAccount = false;
@@ -225,7 +230,7 @@ export default function Login() {
           });
         } catch {}
       }
-      navigate('/');
+      navigate('/home');
     } catch (err: any) {
       setError(getFriendlyAuthErrorMessage(err));
     } finally {
@@ -262,13 +267,13 @@ export default function Login() {
         });
       } catch {}
 
-      navigate('/');
+      navigate('/home');
     } catch (err: any) {
       if (err.code === 'auth/credential-already-in-use') {
         setMessage('This password credential is now linked! You can sign in with your email and password.');
-        navigate('/');
+        navigate('/home');
       } else if (err.code === 'auth/provider-already-linked') {
-        navigate('/');
+        navigate('/home');
       } else {
         setError(getFriendlyAuthErrorMessage(err));
       }
@@ -308,51 +313,86 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-          </div>
-        </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 tracking-tight">
-          TradeVault
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          Your trading data. Your process. Your edge.
-        </p>
-      </div>
+    <div className="relative min-h-screen w-full flex flex-col justify-center items-center py-10 px-4 sm:px-6 lg:px-8 bg-slate-950 overflow-hidden">
+      {/* 1. Full-Screen Video Background */}
+      {!videoError ? (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          onError={() => setVideoError(true)}
+          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none filter brightness-90"
+        >
+          <source
+            src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260418_080021_d598092b-c4c2-4e53-8e46-94cf9064cd50.mp4"
+            type="video/mp4"
+          />
+        </video>
+      ) : (
+        /* Video Fallback Background */
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 z-0" />
+      )}
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <Card className="py-8 px-4 shadow-xl shadow-slate-200/40 sm:rounded-2xl sm:px-10 border-0 ring-1 ring-slate-200">
+      {/* Subtle Dark / Neutral Overlay for high readability */}
+      <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] z-0 pointer-events-none" />
+
+      {/* Ambient gradient glow */}
+      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-blue-600/15 blur-[120px] rounded-full pointer-events-none z-0" />
+
+      <div className="relative z-10 w-full max-w-md mx-auto my-auto">
+        {/* Top Branding */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center gap-3">
+            <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25 ring-1 ring-blue-400/30">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <span className="text-2xl font-bold tracking-tight text-white font-sans">TradeVault</span>
+          </div>
+          <p className="mt-2 text-xs sm:text-sm text-slate-300 font-medium">
+            Evidence-First Trading Operating System
+          </p>
+        </div>
+
+        <div className="bg-slate-900/80 backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/80 rounded-2xl p-6 sm:p-8 text-slate-100">
+          <div className="mb-6 text-center">
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              {isSignUp ? 'Create your TradeVault account' : 'Welcome back'}
+            </h2>
+            <p className="mt-1 text-xs sm:text-sm text-slate-400">
+              {isSignUp
+                ? 'Capture every execution and build a disciplined trading process'
+                : 'Sign in to access your evidence-based trading workspace'}
+            </p>
+          </div>
           {error && (
-            <div className="mb-4 p-3.5 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100 flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+            <div className="mb-4 p-3.5 bg-rose-500/10 text-rose-300 text-sm rounded-xl border border-rose-500/20 backdrop-blur-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 text-xs leading-relaxed">{error}</div>
             </div>
           )}
 
           {message && (
-            <div className="mb-4 p-3.5 bg-emerald-50 text-emerald-800 text-sm rounded-xl border border-emerald-100 flex items-start gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <div className="mb-4 p-3.5 bg-emerald-500/10 text-emerald-300 text-sm rounded-xl border border-emerald-500/20 backdrop-blur-xs flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 text-xs leading-relaxed">{message}</div>
             </div>
           )}
 
           {/* Quick Resolution Box for Invalid Credentials / Forgot Password */}
           {invalidCredentialHelp && (
-            <div className="mb-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 space-y-3">
+            <div className="mb-5 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 backdrop-blur-xs space-y-3">
               <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0 text-white mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-300 mt-0.5 border border-amber-500/40">
                   <KeyRound className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-amber-900">
+                  <h4 className="text-sm font-semibold text-amber-200">
                     Having trouble signing in?
                   </h4>
-                  <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  <p className="text-xs text-amber-300/80 mt-1 leading-relaxed">
                     If this account was registered with Google, you can sign in directly with Google. Or click below to receive a password reset link to set your password.
                   </p>
                 </div>
@@ -360,12 +400,12 @@ export default function Login() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <Button 
-                  type="button"
+                  type="button" 
                   variant="outline"
                   size="sm"
                   onClick={handleGoogle}
                   disabled={loading}
-                  className="text-xs h-9 bg-white border-amber-300 hover:bg-amber-100/70 text-amber-900 flex items-center justify-center gap-1.5"
+                  className="text-xs h-9 bg-slate-900/80 border-amber-500/30 hover:bg-amber-500/20 text-amber-200 flex items-center justify-center gap-1.5"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -382,9 +422,9 @@ export default function Login() {
                   size="sm"
                   onClick={() => handleResetPassword(invalidCredentialHelp)}
                   disabled={loading}
-                  className="text-xs h-9 bg-white border-amber-300 hover:bg-amber-100/70 text-amber-900 flex items-center justify-center gap-1.5"
+                  className="text-xs h-9 bg-slate-900/80 border-amber-500/30 hover:bg-amber-500/20 text-amber-200 flex items-center justify-center gap-1.5"
                 >
-                  <Mail className="w-3.5 h-3.5 text-amber-600" />
+                  <Mail className="w-3.5 h-3.5 text-amber-400" />
                   Send Reset Link
                 </Button>
               </div>
@@ -393,19 +433,19 @@ export default function Login() {
 
           {/* Special Google Account Guidance & Linking Box */}
           {googleNotice && (
-            <div className="mb-6 p-4 rounded-xl bg-blue-50/80 border border-blue-200/80 text-blue-950 space-y-3">
+            <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-200 backdrop-blur-xs space-y-3">
               <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 text-white mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-blue-500/30 flex items-center justify-center flex-shrink-0 text-blue-300 mt-0.5 border border-blue-500/40">
                   <Sparkles className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-blue-900">
+                  <h4 className="text-sm font-semibold text-blue-200">
                     {googleNotice.reason === 'signup_attempt' 
                       ? 'Account Already Exists via Google' 
                       : 'Google Sign-In Account Detected'}
                   </h4>
-                  <p className="text-xs text-blue-800 mt-1 leading-relaxed">
-                    The email <strong className="font-semibold text-blue-950">{googleNotice.email}</strong> is registered using Google Sign-In.
+                  <p className="text-xs text-blue-300/80 mt-1 leading-relaxed">
+                    The email <strong className="font-semibold text-blue-100">{googleNotice.email}</strong> is registered using Google Sign-In.
                     {googleNotice.reason === 'login_attempt' && ' You have not set a standalone email password yet.'}
                     {googleNotice.reason === 'signup_attempt' && ' Your existing trades and journals are safely stored under this Google account.'}
                   </p>
@@ -434,9 +474,9 @@ export default function Login() {
                     variant="outline"
                     onClick={handleLinkPasswordViaGoogle}
                     disabled={loading || linkingPassword}
-                    className="w-full text-xs h-10 border-blue-300 text-blue-800 hover:bg-blue-100/60 flex items-center justify-center gap-1.5"
+                    className="w-full text-xs h-10 border-blue-500/30 text-blue-200 hover:bg-blue-500/20 flex items-center justify-center gap-1.5"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
                     {linkingPassword ? 'Linking Password...' : 'Verify Google & Set This Password'}
                   </Button>
                 )}
@@ -444,7 +484,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setGoogleNotice(null)}
-                  className="w-full text-center text-[11px] text-blue-600 hover:underline pt-1"
+                  className="w-full text-center text-[11px] text-blue-400 hover:underline pt-1"
                 >
                   Dismiss
                 </button>
@@ -452,9 +492,11 @@ export default function Login() {
             </div>
           )}
           
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-4 sm:space-y-5" onSubmit={handleSubmit}>
             <div>
-              <Label htmlFor="email" className="mb-2 block">Email address</Label>
+              <Label htmlFor="email" className="mb-1.5 block text-xs font-medium text-slate-300">
+                Email address
+              </Label>
               <div className="mt-1">
                 <Input
                   id="email"
@@ -468,18 +510,21 @@ export default function Login() {
                     if (invalidCredentialHelp) setInvalidCredentialHelp(null);
                   }}
                   placeholder="name@example.com"
+                  className="bg-slate-950/80 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="password" className="block">Password</Label>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label htmlFor="password" className="block text-xs font-medium text-slate-300">
+                  Password
+                </Label>
                 {!isSignUp && (
                   <button
                     type="button"
                     onClick={() => handleResetPassword(email)}
-                    className="text-xs text-blue-600 hover:text-blue-500 font-medium"
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-medium"
                   >
                     Forgot Password?
                   </button>
@@ -497,14 +542,14 @@ export default function Login() {
                     if (invalidCredentialHelp) setInvalidCredentialHelp(null);
                   }}
                   placeholder="••••••••"
-                  className="pr-10"
+                  className="pr-10 bg-slate-950/80 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   title={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1 rounded transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 focus:outline-none p-1 rounded transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -513,7 +558,9 @@ export default function Login() {
 
             {isSignUp && (
               <div>
-                <Label htmlFor="confirmPassword" className="mb-2 block">Confirm Password</Label>
+                <Label htmlFor="confirmPassword" className="mb-1.5 block text-xs font-medium text-slate-300">
+                  Confirm Password
+                </Label>
                 <div className="mt-1 relative">
                   <Input
                     id="confirmPassword"
@@ -523,14 +570,14 @@ export default function Login() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="pr-10"
+                    className="pr-10 bg-slate-950/80 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                     title={showConfirmPassword ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1 rounded transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 focus:outline-none p-1 rounded transition-colors"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -538,18 +585,23 @@ export default function Login() {
               </div>
             )}
 
-            <div>
-              <Button type="submit" disabled={loading || linkingPassword} className="w-full text-base h-11" size="lg">
-                {isSignUp ? 'Create Account' : 'Sign In'}
+            <div className="pt-1">
+              <Button 
+                type="submit" 
+                disabled={loading || linkingPassword} 
+                className="w-full text-sm font-semibold h-11 bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 transition-all cursor-pointer" 
+                size="lg"
+              >
+                {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Continue'}
               </Button>
             </div>
             
             {!isSignUp && (
-              <div className="text-center">
+              <div className="text-center pt-1">
                 <button 
                   type="button" 
-                  onClick={() => handleResetPassword()} 
-                  className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+                  onClick={() => handleResetPassword(email)} 
+                  className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
                 >
                   Forgot Password?
                 </button>
@@ -557,25 +609,25 @@ export default function Login() {
             )}
           </form>
 
-          <div className="mt-6">
+          <div className="mt-5">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
+                <div className="w-full border-t border-slate-800" />
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-slate-500">Or continue with</span>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-2 bg-slate-900 text-slate-400">Or continue with</span>
               </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-4">
               <Button 
                 type="button" 
                 variant="outline" 
                 disabled={loading || linkingPassword} 
                 onClick={handleGoogle} 
-                className="w-full flex items-center justify-center gap-3 h-11"
+                className="w-full flex items-center justify-center gap-3 h-11 bg-slate-950/80 hover:bg-slate-800 border-slate-700 text-slate-200 hover:text-white transition-colors"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -586,8 +638,8 @@ export default function Login() {
             </div>
           </div>
           
-          <div className="mt-8 text-center">
-            <p className="text-sm text-slate-600">
+          <div className="mt-6 text-center">
+            <p className="text-xs text-slate-400">
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
               <button 
                 type="button" 
@@ -595,16 +647,27 @@ export default function Login() {
                   setIsSignUp(!isSignUp); 
                   setError(''); 
                   setMessage(''); 
-                  setGoogleNotice(null);
-                  setInvalidCredentialHelp(null);
+                  setGoogleNotice(null); 
+                  setInvalidCredentialHelp(null); 
                 }} 
-                className="text-blue-600 font-medium hover:text-blue-500"
+                className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
               >
                 {isSignUp ? 'Sign In' : 'Create Account'}
               </button>
             </p>
           </div>
-        </Card>
+
+          {/* Small footer */}
+          <div className="mt-6 pt-4 border-t border-slate-800/80 text-center">
+            <p className="text-[11px] text-slate-400 tracking-wide flex items-center justify-center gap-2">
+              <span>Secure</span>
+              <span className="text-slate-600">•</span>
+              <span>Private</span>
+              <span className="text-slate-600">•</span>
+              <span>Evidence-First Trading</span>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

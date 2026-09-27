@@ -135,7 +135,7 @@
     },
     "TradingRule": {
       "title": "TradingRule",
-      "description": "Trading rules and discipline guidelines",
+      "description": "Trading rules and discipline checklist",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -151,6 +151,34 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["id", "userId", "dashboardId", "text", "category", "priority", "status"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Authorized administrator credentials record",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "assignedAt": { "type": "number" }
+      },
+      "required": ["uid", "email"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Append-only security and administrative audit trail",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "adminUid": { "type": "string" },
+        "action": { "type": "string" },
+        "targetUid": { "type": "string" },
+        "targetEmail": { "type": "string" },
+        "details": { "type": "object" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "adminEmail", "adminUid", "action", "timestamp"]
     },
     "NewsUserSettings": {
       "title": "NewsUserSettings",
@@ -228,9 +256,38 @@
         "status": { "type": "string" }
       },
       "required": ["id", "competitionId", "userId", "date", "market", "direction", "entry"]
+    },
+    "ConnectedTradingAccount": {
+      "title": "ConnectedTradingAccount",
+      "description": "Connected MT5 trading account metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "accountName": { "type": "string" },
+        "broker": { "type": "string" },
+        "server": { "type": "string" },
+        "connectionType": { "type": "string", "enum": ["demo", "live"] },
+        "status": { "type": "string" },
+        "currency": { "type": "string" },
+        "balance": { "type": "number" },
+        "equity": { "type": "number" },
+        "leverage": { "type": "number" },
+        "openPositionsCount": { "type": "number" },
+        "completedTradesCount": { "type": "number" },
+        "readOnly": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "accountNumber", "server", "connectionType"]
     }
   },
   "firestore": {
+    "/users/{userId}/tradingAccounts/{accountId}": {
+      "schema": { "$ref": "#/entities/ConnectedTradingAccount" },
+      "description": "User's connected MT5 trading accounts"
+    },
     "/arenas/{arenaId}": {
       "schema": { "$ref": "#/entities/Arena" },
       "description": "Competition arenas"
@@ -278,6 +335,14 @@
     "/users/{userId}/dashboards/{dashboardId}/rules/{ruleId}": {
       "schema": { "$ref": "#/entities/TradingRule" },
       "description": "Trading rules and discipline checklist"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Authorized administrator credentials record"
+    },
+    "/admin_audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AdminAuditLog" },
+      "description": "Administrative audit trail logs"
     }
   }
 }

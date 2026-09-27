@@ -1,6 +1,6 @@
 {
   "name": "TradeVault",
-  "description": "A premium, modern trading journal and analytics platform for serious traders.",
+  "description": "Journal trades, analyze performance, manage risk, study trading behavior and build a disciplined trading process.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

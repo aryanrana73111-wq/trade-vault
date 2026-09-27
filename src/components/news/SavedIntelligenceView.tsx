@@ -145,9 +145,9 @@ export const SavedIntelligenceView: React.FC<SavedIntelligenceViewProps> = ({
         <div className="space-y-4">
           {savedArticles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {savedArticles.map(article => (
+              {savedArticles.map((article, idx) => (
                 <div
-                  key={article.id}
+                  key={`${article.id}-${idx}`}
                   className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all space-y-3 flex flex-col justify-between"
                 >
                   <div className="space-y-2">

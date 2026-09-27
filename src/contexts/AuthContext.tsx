@@ -24,6 +24,7 @@ import { logSecurityEvent } from '@/lib/securityService';
 interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
+  isAdmin: boolean;
   profile: UserProfile | null;
   loadingProfile: boolean;
   activeDashboard: Dashboard | null;
@@ -62,6 +63,7 @@ const cleanUndefined = (obj: any): any => {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   
@@ -74,20 +76,83 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         setLoadingProfile(true);
         try {
-          // Ensure top-level user doc exists
+          // Check Admin Authorization
+          const tokenResult = await firebaseUser.getIdTokenResult().catch(() => null);
+          const hasAdminClaim = tokenResult?.claims?.admin === true;
+          const isBootstrapEmail = firebaseUser.email?.toLowerCase() === 'aryanrana73111@gmail.com';
+          
+          let isDocAdmin = false;
+          try {
+            const adminDocSnap = await getDoc(doc(db, 'admins', firebaseUser.uid));
+            isDocAdmin = adminDocSnap.exists();
+          } catch {
+            // Ignore rule error for normal user
+          }
+
+          const userIsAdmin = hasAdminClaim || isBootstrapEmail || isDocAdmin;
+          setIsAdmin(userIsAdmin);
+
+          // If bootstrap admin, ensure records exist & trigger server-side claim sync
+          if (isBootstrapEmail) {
+            try {
+              if (!isDocAdmin) {
+                await setDoc(doc(db, 'admins', firebaseUser.uid), {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email,
+                  role: 'super_admin',
+                  assignedAt: Date.now()
+                }, { merge: true });
+              }
+
+              // Trigger server-side claim assignment via /api/admin/verify and force token refresh
+              if (!hasAdminClaim) {
+                const currentToken = await firebaseUser.getIdToken();
+                await fetch('/api/admin/verify', {
+                  headers: { 'Authorization': `Bearer ${currentToken}` }
+                }).catch(() => {});
+                // Force token refresh to capture the newly set server custom claim
+                await firebaseUser.getIdToken(true).catch(() => {});
+                const freshResult = await firebaseUser.getIdTokenResult(true).catch(() => null);
+                if (freshResult?.claims?.admin === true) {
+                  setIsAdmin(true);
+                }
+              }
+            } catch (e) {
+              console.warn('Bootstrap admin sync notice:', e);
+            }
+          }
+
+          // Ensure top-level user doc exists and update login metadata
           const userRef = doc(db, 'users', firebaseUser.uid);
           const userSnap = await getDoc(userRef);
           const userData = userSnap.data();
 
-          if (!userSnap.exists()) {
-            await setDoc(userRef, {
-              id: firebaseUser.uid,
-              email: firebaseUser.email,
-              name: firebaseUser.displayName || 'Trader',
-              createdAt: Date.now(),
-              updatedAt: Date.now()
-            });
+          // Check if user is disabled by administrator
+          if (userData?.status === 'DISABLED' && !userIsAdmin) {
+            console.warn('Account disabled by administrator. Signing out user.');
+            await firebaseSignOut(auth);
+            setUser(null);
+            setIsAdmin(false);
+            setLoading(false);
+            setLoadingProfile(false);
+            return;
           }
+
+          const userMetadata = {
+            id: firebaseUser.uid,
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || userData?.name || 'Trader',
+            photoURL: firebaseUser.photoURL || userData?.photoURL || '',
+            provider: firebaseUser.providerData?.[0]?.providerId || 'password',
+            emailVerified: firebaseUser.emailVerified === true,
+            lastLoginAt: Date.now(),
+            status: userData?.status || 'ACTIVE',
+            createdAt: userData?.createdAt || Date.now(),
+            updatedAt: Date.now()
+          };
+
+          await setDoc(userRef, userMetadata, { merge: true });
 
           // Load or initialize user profile document under users/{uid}/profile/info
           const profileRef = doc(db, 'users', firebaseUser.uid, 'profile', 'info');
@@ -406,6 +471,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     <AuthContext.Provider value={{ 
       user, 
       loading, 
+      isAdmin,
       profile,
       loadingProfile,
       activeDashboard, 

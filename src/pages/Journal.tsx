@@ -13,8 +13,7 @@ import {
   Check, 
   X, 
   ArrowRight, 
-  GraduationCap, 
-  Bot, 
+  BarChart3, 
   Calculator, 
   ShieldAlert, 
   Trash2, 
@@ -26,7 +25,8 @@ import {
   Newspaper,
   Edit3,
   Eye,
-  Info
+  Info,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData } from '@/contexts/DataContext';
@@ -38,6 +38,8 @@ import { CompletionReminderModal } from '@/components/journal/CompletionReminder
 import { MissingDataBanner } from '@/components/journal/MissingDataBanner';
 import { MissingInfoPopover } from '@/components/journal/MissingInfoPopover';
 import { getTradeCompleteness } from '@/lib/tradeCompleteness';
+import { ConnectedTradingAccount } from '@/types/mt5';
+import { mt5ClientService } from '@/services/mt5ClientService';
 
 interface NotificationState {
   type: 'success' | 'error';
@@ -65,6 +67,14 @@ export default function Journal() {
   const [filterSetupQuality, setFilterSetupQuality] = useState<string>('ALL');
   const [filterDataStatus, setFilterDataStatus] = useState<'ALL' | 'COMPLETE' | 'MISSING' | 'NEEDS_REVIEW' | 'PARTIAL'>('ALL');
   const [filterMacroCatalyst, setFilterMacroCatalyst] = useState<'ALL' | 'NEWS_ONLY' | 'NO_NEWS'>('ALL');
+  const [filterAccount, setFilterAccount] = useState<string>('ALL');
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedTradingAccount[]>([]);
+
+  useEffect(() => {
+    mt5ClientService.getConnectedAccounts().then(setConnectedAccounts).catch(() => {});
+    const unsub = mt5ClientService.subscribeConnectedAccounts(setConnectedAccounts);
+    return () => unsub();
+  }, []);
 
   // Trade Edit & Detail modal state
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
@@ -134,7 +144,16 @@ export default function Journal() {
       matchesMacro = !hasNews;
     }
 
-    return matchesSearch && matchesDirection && matchesSetupQuality && matchesDataStatus && matchesMacro;
+    let matchesAccount = true;
+    if (filterAccount === 'MANUAL_ONLY') {
+      matchesAccount = t.tradeSource !== 'mt5';
+    } else if (filterAccount === 'MT5_ALL') {
+      matchesAccount = t.tradeSource === 'mt5';
+    } else if (filterAccount !== 'ALL') {
+      matchesAccount = t.tradingAccountId === filterAccount || t.accountId === filterAccount;
+    }
+
+    return matchesSearch && matchesDirection && matchesSetupQuality && matchesDataStatus && matchesMacro && matchesAccount;
   });
 
   const handleUpdateResult = (id: string, result: 'WIN' | 'LOSS' | 'BREAK EVEN' | 'PENDING') => {
@@ -297,9 +316,9 @@ export default function Journal() {
       />
 
       {/* Search and Filters Card */}
-      <Card className="p-4 flex flex-col sm:flex-row gap-3 shadow-sm bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+      <Card className="p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <Input 
             placeholder="Search market or strategy..." 
             className="pl-9"
@@ -310,7 +329,7 @@ export default function Journal() {
         <div className="flex flex-wrap gap-2">
           {/* Data Status Filter */}
           <select 
-            className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="h-10 rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all shadow-xs"
             value={filterDataStatus}
             onChange={(e) => setFilterDataStatus(e.target.value as any)}
             title="Filter by Data Completion Status"
@@ -324,7 +343,7 @@ export default function Journal() {
 
           {/* Setup Quality Filter */}
           <select 
-            className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="h-10 rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all shadow-xs"
             value={filterSetupQuality}
             onChange={(e) => setFilterSetupQuality(e.target.value)}
           >
@@ -336,7 +355,7 @@ export default function Journal() {
 
           {/* Direction Filter */}
           <select 
-            className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="h-10 rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all shadow-xs"
             value={filterDirection}
             onChange={(e) => setFilterDirection(e.target.value)}
           >
@@ -347,7 +366,7 @@ export default function Journal() {
 
           {/* Macro Catalyst Filter */}
           <select 
-            className="h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="h-10 rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all shadow-xs"
             value={filterMacroCatalyst}
             onChange={(e) => setFilterMacroCatalyst(e.target.value as any)}
             title="Filter by Macro Economic Catalyst"
@@ -356,12 +375,29 @@ export default function Journal() {
             <option value="NEWS_ONLY">⚡ Linked News Catalyst Only</option>
             <option value="NO_NEWS">Standard Sessions (No News)</option>
           </select>
+
+          {/* Account Filter */}
+          <select 
+            className="h-10 rounded-xl border border-slate-200/85 dark:border-white/[0.1] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md text-slate-900 dark:text-slate-100 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/35 transition-all shadow-xs"
+            value={filterAccount}
+            onChange={(e) => setFilterAccount(e.target.value)}
+            title="Filter by Trading Account / Source"
+          >
+            <option value="ALL">All Accounts (Manual + MT5)</option>
+            <option value="MANUAL_ONLY">Manual Trades Only</option>
+            <option value="MT5_ALL">All MT5 Accounts</option>
+            {connectedAccounts.map(acc => (
+              <option key={acc.id} value={acc.id}>
+                MT5: {acc.accountName || acc.broker} ({acc.accountNumber})
+              </option>
+            ))}
+          </select>
         </div>
       </Card>
 
       {/* Multi-Selection Control Bar */}
       {filteredTrades.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 py-1 text-sm bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3 py-2.5 text-sm bg-white/70 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 dark:text-slate-300">
               <input
@@ -453,15 +489,15 @@ export default function Journal() {
       {/* Modal: Single Trade Delete Confirmation */}
       {tradeToDelete && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150"
           onClick={() => !isDeleting && setTradeToDelete(null)}
         >
           <div 
-            className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-100 dark:border-rose-900/30 overflow-hidden"
+            className="relative w-full max-w-md glass-modal rounded-3xl shadow-2xl border border-rose-200/40 dark:border-rose-900/40 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <div className="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100/80 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 border border-rose-200/60 dark:border-rose-800/40">
                 <Trash2 className="w-6 h-6" />
               </div>
 
@@ -473,7 +509,7 @@ export default function Journal() {
               </p>
 
               {/* Trade Details Summary */}
-              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl mb-4 text-xs space-y-2">
+              <div className="p-3.5 bg-slate-100/60 dark:bg-slate-800/40 backdrop-blur-xs border border-slate-200/80 dark:border-white/[0.08] rounded-2xl mb-4 text-xs space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 font-medium">Market:</span>
                   <span className="font-bold text-slate-900 dark:text-slate-100">{tradeToDelete.market} ({tradeToDelete.direction})</span>
@@ -497,7 +533,7 @@ export default function Journal() {
                 )}
               </div>
 
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-lg text-xs text-amber-800 dark:text-amber-300 mb-5">
+              <div className="p-3 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 mb-5">
                 Deleting this trade permanently updates your analytics, win rate, and equity curve calculations. This cannot be undone.
               </div>
 
@@ -533,15 +569,15 @@ export default function Journal() {
       {/* Modal: Bulk Delete Confirmation */}
       {bulkDeleteModalOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150"
           onClick={() => !isDeleting && setBulkDeleteModalOpen(false)}
         >
           <div 
-            className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-100 dark:border-rose-900/30 overflow-hidden"
+            className="relative w-full max-w-md glass-modal rounded-3xl shadow-2xl border border-rose-200/40 dark:border-rose-900/40 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <div className="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100/80 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 border border-rose-200/60 dark:border-rose-800/40">
                 <AlertTriangle className="w-6 h-6" />
               </div>
 
@@ -552,7 +588,7 @@ export default function Journal() {
                 You are about to permanently delete {selectedTradeIds.length} trade record{selectedTradeIds.length > 1 ? 's' : ''} from your journal.
               </p>
 
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-lg text-xs text-amber-800 dark:text-amber-300 mb-5">
+              <div className="p-3 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 mb-5">
                 This will update all performance statistics, win rate, and equity curve calculations for this dashboard. This action cannot be undone.
               </div>
 
@@ -715,12 +751,12 @@ const TradeCard: React.FC<TradeCardProps> = ({
         delay: Math.min(index * 0.035, 0.35) 
       }}
       className={cn(
-        "rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs overflow-hidden transition-shadow duration-200 hover:shadow-md",
-        isSelected && "ring-2 ring-blue-500/50 border-blue-300 dark:border-blue-700"
+        "rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white/80 dark:bg-slate-900/65 backdrop-blur-md text-slate-900 dark:text-slate-100 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.03)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] overflow-hidden transition-all duration-200 hover:border-slate-300/90 dark:hover:border-white/[0.14] hover:shadow-md",
+        isSelected && "ring-2 ring-blue-500/50 border-blue-400 dark:border-blue-500/60"
       )}
     >
       <div 
-        className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer bg-white dark:bg-slate-900"
+        className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer bg-transparent"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3 min-w-[220px]">
@@ -752,6 +788,15 @@ const TradeCard: React.FC<TradeCardProps> = ({
             <div className="flex items-center gap-2">
               <span className="font-bold text-lg text-slate-900 dark:text-slate-100">{trade.market}</span>
               <Badge variant={trade.direction === 'BUY' ? 'success' : 'danger'}>{trade.direction}</Badge>
+              {trade.tradeSource === 'mt5' && (
+                <span 
+                  className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 flex items-center gap-1"
+                  title={`Imported from MT5: ${trade.brokerServer || ''} (Ticket #${trade.externalTradeId || ''})`}
+                >
+                  <Zap className="w-2.5 h-2.5" />
+                  <span>MT5</span>
+                </span>
+              )}
               {(trade.newsEventName || trade.newsEventId) && (
                 <span 
                   className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-900/60 flex items-center gap-1"
@@ -868,9 +913,9 @@ const TradeCard: React.FC<TradeCardProps> = ({
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
-            <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 space-y-5">
+            <div className="p-5 border-t border-slate-200/60 dark:border-white/[0.06] bg-slate-50/70 dark:bg-slate-850/50 backdrop-blur-xs space-y-5">
           {/* Quick Actions & Status Strip in Expanded View */}
-          <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="p-3.5 bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.08] rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
               <div className={cn(
                 "w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0",
@@ -1049,16 +1094,16 @@ const TradeCard: React.FC<TradeCardProps> = ({
           </div>
         </div>
 
-          {/* TradeVault Academy Integration Actions */}
+          {/* Trade Ecosystem Actions */}
           <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-800">
             <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                  <GraduationCap className="w-4 h-4" />
+                  <ShieldAlert className="w-4 h-4" />
                 </div>
                 <div>
                   <h5 className="text-xs font-bold text-blue-900 dark:text-blue-100">
-                    TradeVault Academy Ecosystem Actions (Trade #{trade.id.slice(-6)})
+                    Trade Ecosystem Actions (Trade #{trade.id.slice(-6)})
                   </h5>
                   <p className="text-[11px] text-blue-700 dark:text-blue-300">
                     Single source of truth: analyze this trade without creating duplicate records.
@@ -1071,12 +1116,12 @@ const TradeCard: React.FC<TradeCardProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/academy?tab=tutor&tradeId=${trade.id}&market=${trade.market}&result=${trade.result || 'PENDING'}`);
+                    navigate('/analytics');
                   }}
                   className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                 >
-                  <Bot className="w-3.5 h-3.5" />
-                  <span>Drill with AI Tutor</span>
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>View in Analytics</span>
                 </button>
 
                 <button

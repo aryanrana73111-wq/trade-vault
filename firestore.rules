@@ -15,8 +15,28 @@ service cloud.firestore {
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == 'aryanrana73111@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
 
+    // Admin authorization records
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
 
+    // Administrative audit logs (Append-only)
+    match /admin_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Competition Arenas
     match /arenas/{arenaId} {
       allow read, write: if isSignedIn();
       
@@ -25,15 +45,19 @@ service cloud.firestore {
       }
     }
 
+    // Connection Health Test
     match /test/{docId} {
       allow read: if true;
     }
 
+    // Isolated User Data
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
 
       match /{document=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
   }

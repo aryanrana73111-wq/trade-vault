@@ -133,37 +133,37 @@ export default function CreateStrategy() {
   return (
     <div className="max-w-4xl mx-auto pb-32 animate-in fade-in">
       <div className="mb-6 flex items-center gap-4">
-        <button onClick={() => navigate('/strategies')} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+        <button onClick={() => navigate('/strategies')} className="p-2 -ml-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Create Strategy</h1>
-          <p className="text-slate-500 mt-1">Define your rules, execution conditions, and risk parameters.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Create Strategy</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">Define your rules, execution conditions, and risk parameters.</p>
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm font-medium">
+        <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl text-sm font-medium backdrop-blur-xs">
           {error}
         </div>
       )}
 
       {templateState && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between gap-3">
+        <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-between gap-3 backdrop-blur-xs">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
+            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30">
               <GraduationCap className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-xs uppercase font-bold text-blue-800 tracking-wider">
+              <h4 className="text-xs uppercase font-bold text-blue-300 tracking-wider">
                 Academy Template Loaded
               </h4>
-              <p className="text-xs text-blue-700 mt-0.5">
+              <p className="text-xs text-blue-200/80 mt-0.5">
                 Pre-filled with institutional framework rules from TradeVault Academy. Review and customize before saving.
               </p>
             </div>
           </div>
-          <span className="text-[11px] font-bold px-2.5 py-1 rounded bg-blue-200 text-blue-800 shrink-0">
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
             Academy Level 4
           </span>
         </div>
@@ -172,8 +172,8 @@ export default function CreateStrategy() {
       <form onSubmit={handleSubmit} className="space-y-8">
         
         {/* Basic Information */}
-        <Card className="p-8 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Basic Information</h3>
+        <Card className="p-6 sm:p-8">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-100 dark:border-white/[0.06] pb-2">Basic Information</h3>
           <div className="space-y-6">
             <div className="space-y-2">
               <Label>Strategy Name *</Label>
@@ -197,8 +197,8 @@ export default function CreateStrategy() {
         </Card>
 
         {/* Markets, Sessions, Timeframes */}
-        <Card className="p-8 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Trading Environment</h3>
+        <Card className="p-6 sm:p-8">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-100 dark:border-white/[0.06] pb-2">Trading Environment</h3>
           <div className="space-y-8">
             <div className="space-y-3">
               <Label>Markets</Label>
@@ -209,8 +209,10 @@ export default function CreateStrategy() {
                     type="button"
                     onClick={() => toggleArrayItem('markets', market)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      formData.markets.includes(market) ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      "px-3 py-1.5 rounded-lg text-sm font-medium border transition-all",
+                      formData.markets.includes(market) 
+                        ? 'border-blue-500/50 bg-blue-500/20 text-blue-300 backdrop-blur-xs font-semibold' 
+                        : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'
                     )}
                   >
                     {market}
@@ -228,8 +230,10 @@ export default function CreateStrategy() {
                     type="button"
                     onClick={() => toggleArrayItem('sessions', session)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      formData.sessions.includes(session) ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      "px-3 py-1.5 rounded-lg text-sm font-medium border transition-all",
+                      formData.sessions.includes(session) 
+                        ? 'border-blue-500/50 bg-blue-500/20 text-blue-300 backdrop-blur-xs font-semibold' 
+                        : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'
                     )}
                   >
                     {session}
@@ -247,8 +251,10 @@ export default function CreateStrategy() {
                     type="button"
                     onClick={() => toggleArrayItem('timeframes', tf)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      formData.timeframes.includes(tf) ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      "px-3 py-1.5 rounded-lg text-sm font-medium border transition-all",
+                      formData.timeframes.includes(tf) 
+                        ? 'border-blue-500/50 bg-blue-500/20 text-blue-300 backdrop-blur-xs font-semibold' 
+                        : 'border-slate-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'
                     )}
                   >
                     {tf}
@@ -260,14 +266,14 @@ export default function CreateStrategy() {
         </Card>
 
         {/* Strategy Rules */}
-        <Card className="p-8 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Strategy Rules</h3>
+        <Card className="p-6 sm:p-8">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-100 dark:border-white/[0.06] pb-2">Strategy Rules</h3>
           
           <div className="space-y-8">
             {/* Entry Rules */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <Label className="text-base text-slate-800">Entry Conditions</Label>
+                <Label className="text-base text-slate-900 dark:text-slate-100 font-semibold">Entry Conditions</Label>
                 <Button type="button" variant="outline" size="sm" onClick={() => addRule('entryRules')} className="h-8">
                   <Plus className="w-4 h-4 mr-1" /> Add Entry Rule
                 </Button>
@@ -285,21 +291,21 @@ export default function CreateStrategy() {
                         placeholder={`e.g. ${idx === 0 ? 'Identify higher timeframe bias' : 'Wait for liquidity sweep'}`} 
                       />
                     </div>
-                    <button type="button" onClick={() => removeRule('entryRules', rule.id)} className="mt-2 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+                    <button type="button" onClick={() => removeRule('entryRules', rule.id)} className="mt-2 p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
                 ))}
                 {formData.entryRules.length === 0 && (
-                  <div className="text-sm text-slate-500 italic py-2">No entry rules defined.</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400 italic py-2">No entry rules defined.</div>
                 )}
               </div>
             </div>
 
             {/* Invalidation Rules */}
-            <div className="pt-6 border-t border-slate-100">
+            <div className="pt-6 border-t border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center justify-between mb-4">
-                <Label className="text-base text-slate-800">Invalidation Conditions</Label>
+                <Label className="text-base text-slate-900 dark:text-slate-100 font-semibold">Invalidation Conditions</Label>
                 <Button type="button" variant="outline" size="sm" onClick={() => addRule('invalidationRules')} className="h-8">
                   <Plus className="w-4 h-4 mr-1" /> Add Rule
                 </Button>
@@ -317,20 +323,20 @@ export default function CreateStrategy() {
                         placeholder="e.g. Structure breaks against the setup before entry" 
                       />
                     </div>
-                    <button type="button" onClick={() => removeRule('invalidationRules', rule.id)} className="mt-2 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+                    <button type="button" onClick={() => removeRule('invalidationRules', rule.id)} className="mt-2 p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
                 ))}
                 {formData.invalidationRules.length === 0 && (
-                  <div className="text-sm text-slate-500 italic py-2">No invalidation conditions defined.</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400 italic py-2">No invalidation conditions defined.</div>
                 )}
               </div>
             </div>
 
             {/* Exit Rules */}
-            <div className="pt-6 border-t border-slate-100">
-              <Label className="text-base text-slate-800 block mb-4">Exit Rules</Label>
+            <div className="pt-6 border-t border-slate-100 dark:border-white/[0.06]">
+              <Label className="text-base text-slate-900 dark:text-slate-100 font-semibold block mb-4">Exit Rules</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Take Profit Logic</Label>
@@ -354,14 +360,14 @@ export default function CreateStrategy() {
         </Card>
 
         {/* Pre-Trade Checklist */}
-        <Card className="p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-2">
-            <h3 className="text-lg font-semibold text-slate-900">Pre-Trade Checklist</h3>
+        <Card className="p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-6 border-b border-slate-100 dark:border-white/[0.06] pb-2">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Pre-Trade Checklist</h3>
             <Button type="button" variant="outline" size="sm" onClick={() => addRule('checklist')} className="h-8">
               <Plus className="w-4 h-4 mr-1" /> Add Item
             </Button>
           </div>
-          <p className="text-sm text-slate-500 mb-6">Create a checklist that you must verify before taking this trade. This will appear when you add a trade with this strategy.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Create a checklist that you must verify before taking this trade. This will appear when you add a trade with this strategy.</p>
           
           <div className="space-y-3">
             {formData.checklist.map((rule, idx) => (
@@ -369,7 +375,7 @@ export default function CreateStrategy() {
                 <div className="mt-2.5 text-slate-400 cursor-grab active:cursor-grabbing">
                   <GripVertical className="w-4 h-4" />
                 </div>
-                <div className="mt-3 w-4 h-4 border-2 border-slate-300 rounded shrink-0"></div>
+                <div className="mt-3 w-4 h-4 border-2 border-slate-300 dark:border-slate-600 rounded shrink-0"></div>
                 <div className="flex-1">
                   <Input 
                     value={rule.text} 
@@ -377,21 +383,26 @@ export default function CreateStrategy() {
                     placeholder={`e.g. ${idx === 0 ? 'Higher timeframe bias confirmed' : 'No emotional entry'}`} 
                   />
                 </div>
-                <button type="button" onClick={() => removeRule('checklist', rule.id)} className="mt-2 p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+                <button type="button" onClick={() => removeRule('checklist', rule.id)} className="mt-2 p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             ))}
             {formData.checklist.length === 0 && (
-              <div className="text-sm text-slate-500 italic py-2">No checklist items defined.</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400 italic py-2">No checklist items defined.</div>
             )}
           </div>
         </Card>
 
         {/* Risk Management Preferences */}
-        <Card className="p-8 shadow-sm border-l-4 border-l-blue-500">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 border-b border-slate-100 pb-2">Risk Management Preferences</h3>
-          <p className="text-sm text-slate-500 mb-6">Set preferred risk limits. If a trade violates these limits, you'll receive a warning when recording it.</p>
+        <Card className="p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-6 border-b border-slate-100 dark:border-white/[0.06] pb-2">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Risk Management Preferences</h3>
+            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/25">
+              Risk Bounds
+            </span>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Set preferred risk limits. If a trade violates these limits, you'll receive a warning when recording it.</p>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
             <div className="space-y-2">
@@ -414,7 +425,7 @@ export default function CreateStrategy() {
         </Card>
 
         {/* Sticky Actions */}
-        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 flex justify-end gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200/80 dark:border-white/[0.08] flex justify-end gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
           <Button type="button" variant="ghost" onClick={() => navigate('/strategies')} className="hidden sm:flex">
             Cancel
           </Button>

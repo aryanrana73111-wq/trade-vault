@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
-  User, CreditCard, ShieldAlert, Brain, LogIn, BarChart2, 
+  User, CreditCard, ShieldAlert, LogIn, BarChart2, 
   Palette, LayoutDashboard, Bell, Clock, Target, Database, 
-  Lock, Zap, FlaskConical, Search, Plus, BookOpen, Trash2,
+  Lock, Zap, Search, Plus, BookOpen, Trash2,
   Eye, EyeOff, CheckCircle2, ShieldCheck, KeyRound, AlertCircle
 } from 'lucide-react';
 import { 
@@ -27,6 +27,7 @@ import { SecurityCenterTab } from '@/components/security/SecurityCenterTab';
 import { DataIntegrityTab } from '@/components/security/DataIntegrityTab';
 import { PrivacyCenterTab } from '@/components/security/PrivacyCenterTab';
 import { SecurityAuditLogTab } from '@/components/security/SecurityAuditLogTab';
+import { ConnectMT5Section } from '@/components/mt5/ConnectMT5Section';
 
 const SETTINGS_SECTIONS = [
   { id: 'profile', label: 'Profile', icon: User, group: 'ACCOUNT' },
@@ -39,7 +40,6 @@ const SETTINGS_SECTIONS = [
   { id: 'schedule', label: 'Trading Schedule', icon: Clock, group: 'TRADING' },
 
   { id: 'analytics', label: 'Analytics', icon: BarChart2, group: 'ANALYTICS' },
-  { id: 'psychology', label: 'Psychology', icon: Brain, group: 'ANALYTICS' },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'ANALYTICS' },
 
   { id: 'appearance', label: 'Appearance', icon: Palette, group: 'SYSTEM' },
@@ -48,7 +48,6 @@ const SETTINGS_SECTIONS = [
   { id: 'security', label: 'Security & Privacy', icon: ShieldCheck, group: 'SYSTEM' },
 
   { id: 'ai', label: 'AI', icon: Zap, group: 'ADVANCED' },
-  { id: 'labs', label: 'Labs', icon: FlaskConical, group: 'ADVANCED' },
 ];
 
 export default function Settings() {
@@ -128,14 +127,14 @@ export default function Settings() {
 
   return (
     <div className="max-w-6xl mx-auto pb-24 animate-in fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 border-b border-slate-200/80 dark:border-white/[0.08] pb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Control Center</h1>
-          <p className="text-slate-500 mt-1">Manage your platform preferences and trading rules.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Control Center</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your platform preferences and trading rules.</p>
         </div>
         <div className="flex items-center gap-3">
           {saveStatus && (
-            <span className="text-sm font-medium text-green-600 flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-full">
+            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
               {saveStatus}
             </span>
@@ -157,14 +156,14 @@ export default function Settings() {
                 placeholder="Search settings..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-4 py-2 bg-white/70 dark:bg-slate-800/60 backdrop-blur-xs border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
               />
             </div>
 
             <div className="space-y-6 hidden lg:block overflow-y-auto max-h-[calc(100vh-200px)] pr-2 pb-10">
               {groups.map(group => (
                 <div key={group}>
-                  <h3 className="text-xs font-semibold text-slate-400 mb-2 tracking-wider">{group}</h3>
+                  <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2 tracking-wider">{group}</h3>
                   <div className="space-y-1">
                     {filteredSections.filter(s => s.group === group).map(section => {
                       const isActive = activeSection === section.id;
@@ -172,13 +171,13 @@ export default function Settings() {
                         <button
                           key={section.id}
                           onClick={() => setActiveSection(section.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
                             isActive 
-                              ? 'bg-blue-50 text-blue-700' 
-                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-semibold shadow-2xs' 
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
                           }`}
                         >
-                          <section.icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                          <section.icon className={`w-4 h-4 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`} />
                           {section.label}
                         </button>
                       );
@@ -196,13 +195,13 @@ export default function Settings() {
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
-                    className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
+                    className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                       isActive 
-                        ? 'bg-blue-50 text-blue-700 border-blue-200' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 font-semibold' 
+                        : 'bg-white/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-white/[0.08] hover:bg-white dark:hover:bg-slate-800'
                     }`}
                   >
-                    <section.icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                    <section.icon className={`w-4 h-4 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
                     {section.label}
                   </button>
                 );
@@ -378,42 +377,7 @@ export default function Settings() {
 
           {activeSection === 'accounts' && (
             <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-              <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Trading Accounts</h2>
-                  <p className="text-sm text-slate-500 mt-1">Manage your live, funded, and demo accounts.</p>
-                </div>
-                <Button variant="outline" className="gap-2">
-                  <Plus className="w-4 h-4" /> Add Account
-                </Button>
-              </div>
-              
-              <div className="space-y-4">
-                {localSettings.accounts.map(acc => (
-                  <div key={acc.id} className={`p-4 rounded-xl border ${localSettings.activeAccountId === acc.id ? 'border-blue-500 bg-blue-50/50' : 'border-slate-200 bg-white'}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${localSettings.activeAccountId === acc.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                          <CreditCard className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                            {acc.name} 
-                            {localSettings.activeAccountId === acc.id && (
-                              <span className="text-[10px] uppercase font-bold tracking-wider bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Active</span>
-                            )}
-                          </h3>
-                          <p className="text-sm text-slate-500">{acc.broker} • {acc.type} • {acc.currency}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-slate-900">${acc.currentBalance.toLocaleString()}</p>
-                        <p className="text-xs text-slate-500">Starting: ${acc.startingBalance.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ConnectMT5Section targetDashboardId={activeDashboard?.id} />
             </div>
           )}
 
@@ -470,49 +434,6 @@ export default function Settings() {
                       className="w-full p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
                     />
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeSection === 'psychology' && (
-            <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-              <div className="border-b border-slate-200 pb-4">
-                <h2 className="text-xl font-semibold text-slate-900">Psychology Tracking</h2>
-                <p className="text-sm text-slate-500 mt-1">Configure behavioral pattern detection based on your journal data.</p>
-              </div>
-              
-              <div className="space-y-6 max-w-2xl">
-                <label className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-white cursor-pointer hover:bg-slate-50">
-                  <div>
-                    <h4 className="font-semibold text-slate-900">Enable Psychology Tracking</h4>
-                    <p className="text-xs text-slate-500">Activates the Psychology dashboard and behavioral analytics.</p>
-                  </div>
-                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${localSettings.psychology.enabled ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${localSettings.psychology.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </div>
-                  <input type="checkbox" className="hidden" checked={localSettings.psychology.enabled} onChange={() => updateSection('psychology', { enabled: !localSettings.psychology.enabled })} />
-                </label>
-
-                <div className={`space-y-3 ${!localSettings.psychology.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-2">Detection Features</h3>
-                  {[
-                    { id: 'preTrade', label: 'Pre-Trade Emotion Tracking' },
-                    { id: 'fomoDetection', label: 'FOMO Pattern Detection' },
-                    { id: 'revengeDetection', label: 'Revenge Pattern Detection' },
-                    { id: 'riskEscalationDetection', label: 'Risk Escalation Detection' },
-                    { id: 'ruleAdherence', label: 'Rule Adherence Correlation' }
-                  ].map(feature => (
-                    <label key={feature.id} className="flex items-center gap-3">
-                      <input 
-                        type="checkbox" 
-                        checked={localSettings.psychology[feature.id as keyof typeof localSettings.psychology] as boolean}
-                        onChange={(e) => updateSection('psychology', { [feature.id]: e.target.checked })}
-                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700">{feature.label}</span>
-                    </label>
-                  ))}
                 </div>
               </div>
             </div>
@@ -701,8 +622,7 @@ export default function Settings() {
                       { id: 'riskLimit', label: 'Risk Limit Warnings' },
                       { id: 'dailyLoss', label: 'Daily Loss Warnings' },
                       { id: 'consecutiveLoss', label: 'Consecutive Loss Warnings' },
-                      { id: 'overtrading', label: 'Overtrading Warnings' },
-                      { id: 'psychologyPattern', label: 'Psychology Pattern Warnings' }
+                      { id: 'overtrading', label: 'Overtrading Warnings' }
                     ].map(notification => (
                       <label key={notification.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
                         <span className="text-sm text-slate-700">{notification.label}</span>
@@ -783,13 +703,13 @@ export default function Settings() {
               </div>
 
               {/* Subtabs Bar */}
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl max-w-2xl overflow-x-auto">
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 dark:bg-slate-800/60 backdrop-blur-xs border border-slate-200/80 dark:border-white/[0.08] rounded-xl max-w-2xl overflow-x-auto">
                 <button
                   type="button"
                   onClick={() => setSecuritySubTab('security')}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                     securitySubTab === 'security'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                      ? 'bg-white dark:bg-slate-700/80 text-blue-600 dark:text-blue-400 shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -802,7 +722,7 @@ export default function Settings() {
                   onClick={() => setSecuritySubTab('integrity')}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                     securitySubTab === 'integrity'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                      ? 'bg-white dark:bg-slate-700/80 text-blue-600 dark:text-blue-400 shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -815,7 +735,7 @@ export default function Settings() {
                   onClick={() => setSecuritySubTab('privacy')}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                     securitySubTab === 'privacy'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                      ? 'bg-white dark:bg-slate-700/80 text-blue-600 dark:text-blue-400 shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -828,7 +748,7 @@ export default function Settings() {
                   onClick={() => setSecuritySubTab('audit')}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                     securitySubTab === 'audit'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                      ? 'bg-white dark:bg-slate-700/80 text-blue-600 dark:text-blue-400 shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -909,55 +829,13 @@ export default function Settings() {
                       </label>
                     ))}
                   </div>
-
-                  <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
-                    <span className="text-xs text-slate-400">Launch Trading Intelligence & Research Center:</span>
-                    <Button
-                      size="sm"
-                      onClick={() => navigate('/ai-labs')}
-                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs"
-                    >
-                      Open AI & Labs
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {activeSection === 'labs' && (
-            <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-              <div className="border-b border-slate-200 pb-4">
-                <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">TradeVault Labs <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">BETA</span></h2>
-                <p className="text-sm text-slate-500 mt-1">Experimental features that are still in development.</p>
-              </div>
-              <div className="space-y-4 max-w-2xl">
-                <Card className="p-4 border-purple-100 bg-purple-50/30">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-slate-900">Advanced Psychology</h3>
-                      <p className="text-sm text-slate-500 mt-1">Enables multi-variable correlation in the psychology dashboard.</p>
-                    </div>
-                    <div className={`mt-1 w-9 h-5 rounded-full transition-colors flex items-center px-1 cursor-pointer ${localSettings.labs.advancedPsychology ? 'bg-purple-600' : 'bg-slate-300'}`} onClick={() => updateSection('labs', { advancedPsychology: !localSettings.labs.advancedPsychology })}>
-                      <div className={`w-3 h-3 bg-white rounded-full transition-transform ${localSettings.labs.advancedPsychology ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </div>
-                  </div>
-                </Card>
-                <Card className="p-4 border-slate-200">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-slate-900 flex items-center gap-2">Smart Risk Warnings</h3>
-                      <p className="text-sm text-slate-500 mt-1">Context-aware risk limits based on current market volatility.</p>
-                    </div>
-                    <span className="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-1 rounded">Coming Soon</span>
-                  </div>
-                </Card>
-              </div>
-            </div>
-          )}
-
           {/* Fallback */}
-          {activeSection !== 'profile' && activeSection !== 'appearance' && activeSection !== 'accounts' && activeSection !== 'risk' && activeSection !== 'psychology' && activeSection !== 'data' && activeSection !== 'entry' && activeSection !== 'strategy' && activeSection !== 'analytics' && activeSection !== 'dashboard' && activeSection !== 'notifications' && activeSection !== 'schedule' && activeSection !== 'privacy' && activeSection !== 'ai' && activeSection !== 'labs' && (
+          {activeSection !== 'profile' && activeSection !== 'appearance' && activeSection !== 'accounts' && activeSection !== 'risk' && activeSection !== 'data' && activeSection !== 'entry' && activeSection !== 'strategy' && activeSection !== 'analytics' && activeSection !== 'dashboard' && activeSection !== 'notifications' && activeSection !== 'schedule' && activeSection !== 'privacy' && activeSection !== 'ai' && (
 
              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                <div className="border-b border-slate-200 pb-4">

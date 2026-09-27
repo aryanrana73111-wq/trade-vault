@@ -12,7 +12,9 @@ import {
   ExternalLink,
   Sparkles,
   Check,
-  Star
+  Star,
+  Users,
+  Activity
 } from 'lucide-react';
 import { NAVIGATION_CONFIG, NavSection, NavChildItem, getFlattenedNavItems, FlatNavItem } from '@/config/navigationConfig';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,14 +32,15 @@ const PINNED_ROUTES_KEY = 'tradevault_nav_pinned_routes';
 const DEFAULT_PINNED_PATHS = [
   '/news?tab=calendar',
   '/calculator',
-  '/ai-labs?tab=patterns',
+  '/strategies',
   '/journal'
 ];
 
 export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, logout, activeDashboard, dashboards, setActiveDashboard } = useAuth();
+  const { user, profile, logout, activeDashboard, dashboards, setActiveDashboard, isAdmin } = useAuth();
+  const isOwnerAdmin = isAdmin || user?.email?.toLowerCase() === 'aryanrana73111@gmail.com';
 
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
@@ -563,6 +566,36 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
 
         {/* Drawer Footer (Profile, Settings, Sign Out) */}
         <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/70 dark:bg-slate-900/90 backdrop-blur-md space-y-2">
+          {/* Owner Admin Navigation — strictly hidden for normal users */}
+          {isOwnerAdmin && (
+            <div className="p-2.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-500/30 space-y-1.5 mb-2">
+              <div className="px-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 font-mono flex items-center justify-between">
+                <span>Admin Control</span>
+                <span className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-1 py-0.2 rounded font-mono">
+                  Owner
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('/admin/users')}
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-blue-400 transition-colors"
+                >
+                  <Users className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Users</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('/admin?tab=activity')}
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-blue-400 transition-colors"
+                >
+                  <Activity className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Activity</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* User profile banner */}
           <div 
             onClick={() => handleNavigate('/settings?tab=profile')}

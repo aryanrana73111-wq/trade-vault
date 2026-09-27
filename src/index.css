@@ -21,6 +21,21 @@
   --input-caret: #0f172a;
   --input-selection-bg: #bfdbfe;   /* blue-200 */
   --input-selection-text: #1e3a8a; /* blue-900 */
+
+  /* Global Subtle Glassmorphism Tokens (Light Theme) */
+  --glass-card-bg: rgba(255, 255, 255, 0.78);
+  --glass-card-border: rgba(226, 232, 240, 0.85);
+  --glass-card-border-hover: rgba(148, 163, 184, 0.65);
+  --glass-card-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+  --glass-panel-bg: rgba(255, 255, 255, 0.58);
+  --glass-panel-border: rgba(226, 232, 240, 0.75);
+  --glass-modal-bg: rgba(255, 255, 255, 0.94);
+  --glass-modal-border: rgba(226, 232, 240, 0.9);
+  --glass-modal-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18);
+  --glass-dropdown-bg: rgba(255, 255, 255, 0.95);
+  --glass-dropdown-border: rgba(226, 232, 240, 0.9);
+  --glass-nav-bg: rgba(255, 255, 255, 0.82);
+  --glass-nav-border: rgba(226, 232, 240, 0.8);
 }
 
 .dark {
@@ -39,6 +54,21 @@
   --input-caret: #60a5fa;
   --input-selection-bg: #1d4ed8;   /* blue-700 */
   --input-selection-text: #ffffff;
+
+  /* Global Subtle Glassmorphism Tokens (Dark Theme) */
+  --glass-card-bg: rgba(15, 23, 42, 0.68);
+  --glass-card-border: rgba(255, 255, 255, 0.08);
+  --glass-card-border-hover: rgba(255, 255, 255, 0.16);
+  --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.38), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  --glass-panel-bg: rgba(15, 23, 42, 0.48);
+  --glass-panel-border: rgba(255, 255, 255, 0.06);
+  --glass-modal-bg: rgba(15, 23, 42, 0.90);
+  --glass-modal-border: rgba(255, 255, 255, 0.12);
+  --glass-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --glass-dropdown-bg: rgba(15, 23, 42, 0.92);
+  --glass-dropdown-border: rgba(255, 255, 255, 0.12);
+  --glass-nav-bg: rgba(15, 23, 42, 0.82);
+  --glass-nav-border: rgba(255, 255, 255, 0.08);
 }
 
 body {
@@ -174,5 +204,101 @@ select:-webkit-autofill:focus {
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Subtle Glassmorphism Utility Classes */
+  .glass-card {
+    background-color: var(--glass-card-bg) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-card-border) !important;
+    box-shadow: var(--glass-card-shadow);
+    border-radius: 1rem;
+    transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
+  }
+  .glass-card:hover {
+    border-color: var(--glass-card-border-hover) !important;
+  }
+
+  .glass-panel {
+    background-color: var(--glass-panel-bg) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-panel-border) !important;
+  }
+
+  .glass-modal {
+    background-color: var(--glass-modal-bg) !important;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-modal-border) !important;
+    box-shadow: var(--glass-modal-shadow);
+  }
+
+  .glass-dropdown {
+    background-color: var(--glass-dropdown-bg) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-dropdown-border) !important;
+    box-shadow: var(--glass-modal-shadow);
+  }
+
+  .glass-nav {
+    background-color: var(--glass-nav-bg) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-color: var(--glass-nav-border) !important;
+  }
+
+  .glass-pill {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-panel-border);
+  }
+}
+
+/* 
+  Cinematic Video Hero Lighting & Ambient Glow System
+  GPU-accelerated, respects prefers-reduced-motion, subtle and luminous fintech aesthetics
+*/
+@keyframes ambientSweep {
+  0% {
+    transform: translate3d(-15%, -8%, 0) scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate3d(15%, 8%, 0) scale(1.06);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(-15%, -8%, 0) scale(1);
+    opacity: 0.35;
+  }
+}
+
+@keyframes subtleEdgeGlow {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-ambient-sweep {
+  animation: ambientSweep 16s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-edge-glow {
+  animation: subtleEdgeGlow 10s ease-in-out infinite;
+  will-change: opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ambient-sweep,
+  .animate-edge-glow {
+    animation: none !important;
+    transform: none !important;
   }
 }

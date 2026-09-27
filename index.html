@@ -1,10 +1,26 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      // Runtime constraint: HMR is disabled in preview environment; suppress Vite WebSocket connection errors
+      (function() {
+        var filterVite = function(origFn) {
+          return function() {
+            var msg = arguments[0];
+            if (typeof msg === 'string' && (msg.indexOf('[vite]') !== -1 || msg.indexOf('WebSocket') !== -1 || msg.indexOf('ws://') !== -1 || msg.indexOf('wss://') !== -1)) {
+              return;
+            }
+            return origFn.apply(console, arguments);
+          };
+        };
+        console.error = filterVite(console.error);
+        console.warn = filterVite(console.warn);
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TradeVault | Premium Trading Journal</title>
-    <meta name="description" content="Professional trading journal and behavioral analytics platform." />
+    <title>TradeVault — Evidence-First Trading Operating System</title>
+    <meta name="description" content="Journal trades, analyze performance, manage risk, study trading behavior and build a disciplined trading process." />
     <meta name="theme-color" content="#0f172a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -13,8 +29,8 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
-    <meta property="og:title" content="TradeVault | Premium Trading Journal" />
-    <meta property="og:description" content="A premium, modern trading journal and analytics platform for serious traders." />
+    <meta property="og:title" content="TradeVault — Evidence-First Trading Operating System" />
+    <meta property="og:description" content="Journal trades, analyze performance, manage risk, study trading behavior and build a disciplined trading process." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
   </head>

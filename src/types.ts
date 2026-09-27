@@ -111,6 +111,19 @@ export interface Trade {
   newsImpact?: 'LOW' | 'MEDIUM' | 'HIGH';
   newsProximityMinutes?: number;
 
+  // MT5 Automatic Import Integration
+  tradeSource?: 'manual' | 'mt5';
+  externalTradeId?: string;
+  tradingAccountId?: string;
+  mt5AccountId?: string;
+  brokerServer?: string;
+  importedAt?: number;
+  syncId?: string;
+  commission?: number;
+  swap?: number;
+  exitTime?: number;
+  durationSeconds?: number;
+
   // Change / Audit History
   auditHistory?: {
     field: string;
@@ -764,3 +777,5 @@ export interface SharedTradeProjection {
 }
 
 export type CompetitionTrade = SharedTradeProjection;
+
+export * from './types/mt5';

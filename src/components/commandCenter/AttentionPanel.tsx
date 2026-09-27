@@ -108,7 +108,7 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
 
         {/* Category Filter Pills */}
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-          {['all', 'risk', 'psychology', 'strategy', 'rules', 'behavior'].map(cat => (
+          {['all', 'risk', 'strategy', 'rules', 'performance'].map(cat => (
             <button
               key={cat}
               onClick={() => setFilterCategory(cat)}
@@ -135,7 +135,7 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
               No Attention Flags in This Category
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
-              Your recorded trades currently meet configured risk limits, rule adherence standards, and psychology completion targets.
+              Your recorded trades currently meet configured risk limits and rule adherence standards.
             </p>
           </div>
         ) : (
