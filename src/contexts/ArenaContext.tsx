@@ -10,7 +10,7 @@ interface ArenaContextType {
   error: Error | null;
 }
 
-const ArenaContext = createContext<ArenaContextType | undefined>(undefined);
+export const ArenaContext = createContext<ArenaContextType | undefined>(undefined);
 
 export function ArenaProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();

@@ -1,20 +1,25 @@
 import express, { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { getArticlesForDate } from './src/services/news/liveNewsAggregator';
 import { getEventsForDate, getUpcomingEvents } from './src/services/news/economicCalendarService';
 import { createAdminRouter } from './src/server/adminRoutes';
 import { createMT5Router } from './src/server/mt5/mt5Routes';
+import { createSmartAddTradeRouter } from './src/server/smartAddTradeRoutes';
+import { createMarketDataRouter } from './src/server/marketDataRoutes';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  // Dev server must always bind to port 3000 per environment constraints
+  const PORT = 3000;
 
-  app.use(express.json());
+  // Support image base64 payloads for MT5 screenshot analyzer
+  app.use(express.json({ limit: '15mb' }));
 
   // 1. Health check
   app.get('/api/health', (_req: Request, res: Response) => {
@@ -30,6 +35,12 @@ async function startServer() {
 
   // 3. MetaTrader 5 (MT5) Connector API
   app.use('/api/mt5', createMT5Router());
+
+  // 4. Smart Add Trade & MT5 Screenshot Vision Analyzer API
+  app.use('/api', createSmartAddTradeRouter());
+
+  // 5. Professional Charting Market Data API (OHLCV Candles & Real Providers)
+  app.use('/api/market-data', createMarketDataRouter());
 
   // 2. Live News API (Fetches aggregated RSS & wire summaries with date boundaries)
   app.get('/api/news', async (req: Request, res: Response) => {
@@ -126,11 +137,14 @@ async function startServer() {
   });
 
   // 5. Mount Vite middlewares in development or serve static in production
-  if (process.env.NODE_ENV === 'production') {
-    const distPath = path.resolve(__dirname, 'dist');
+  const distPath = path.resolve(__dirname, 'dist');
+  const distIndexPath = path.resolve(distPath, 'index.html');
+  const isProd = process.env.NODE_ENV === 'production' && fs.existsSync(distIndexPath);
+
+  if (isProd) {
     app.use(express.static(distPath));
     app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
+      res.sendFile(distIndexPath);
     });
   } else {
     const vite = await createViteServer({
@@ -142,6 +156,24 @@ async function startServer() {
       appType: 'spa'
     });
     app.use(vite.middlewares);
+
+    // Guaranteed SPA fallback for all sub-routes in dev mode
+    app.use('*', async (req: Request, res: Response, next) => {
+      // Don't intercept API routes
+      if (req.originalUrl.startsWith('/api')) {
+        return next();
+      }
+      try {
+        const url = req.originalUrl;
+        const templatePath = path.resolve(__dirname, 'index.html');
+        let template = fs.readFileSync(templatePath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

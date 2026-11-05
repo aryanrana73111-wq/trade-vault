@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Compass, 
   ShieldCheck, 
@@ -7,16 +7,26 @@ import {
   RefreshCw, 
   Plus, 
   Layers, 
-  Calendar,
-  AlertTriangle,
-  ArrowRight,
-  ExternalLink,
-  BookOpenCheck,
-  Search,
-  Sparkles,
-  HelpCircle,
-  FileSpreadsheet,
-  RotateCcw
+  Calendar, 
+  AlertTriangle, 
+  ArrowRight, 
+  ExternalLink, 
+  BookOpenCheck, 
+  Search, 
+  Sparkles, 
+  HelpCircle, 
+  FileSpreadsheet, 
+  RotateCcw, 
+  Clock, 
+  CheckCircle2, 
+  Eye, 
+  Zap, 
+  Brain, 
+  Target, 
+  FlaskConical, 
+  Award, 
+  Activity, 
+  ShieldAlert 
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,49 +37,76 @@ import {
   ComparisonWindowSize, 
   AttentionItem, 
   PinnedItem,
-  CommandCenterLayoutConfig
+  CommandCenterLayoutConfig,
+  ProcessActionItem,
+  BehavioralPattern
 } from '@/types/commandCenter';
 import { 
   calculateCommandCenterSummary,
   generateAttentionItems,
   calculateCurrentTradingState,
-  generateRecentActivityTimeline
+  generateRecentActivityTimeline,
+  filterTradesByTimeRange
 } from '@/lib/commandCenter/engine';
-import { CommandCenterSummaryCards } from '@/components/commandCenter/CommandCenterSummaryCards';
-import { AttentionPanel } from '@/components/commandCenter/AttentionPanel';
-import { CurrentTradingStateCard } from '@/components/commandCenter/CurrentTradingStateCard';
-import { QuickInvestigationBar } from '@/components/commandCenter/QuickInvestigationBar';
-import { PinnedItemsWidget } from '@/components/commandCenter/PinnedItemsWidget';
-import { RecentActivityTimelineWidget } from '@/components/commandCenter/RecentActivityTimelineWidget';
-import { ConnectedWorkflowBanner } from '@/components/commandCenter/ConnectedWorkflowBanner';
-import { LayoutCustomizerModal } from '@/components/commandCenter/LayoutCustomizerModal';
+import { 
+  calculateTraderHealthScore,
+  generateProcessActionItems,
+  detectBehavioralPatterns,
+  calculatePlannedVsActualRisk,
+  calculateDrawdownProfile,
+  calculateMistakeClusters,
+  identifyPersonalLeaksAndStrengths,
+  calculateTraderLevel,
+  runWhatIfSimulations,
+  evaluateHypotheses
+} from '@/lib/commandCenter/advancedAnalyticsEngine';
+
+// Components
+import { CockpitSummaryBar } from '@/components/commandCenter/CockpitSummaryBar';
+import { TraderStatusHeader } from '@/components/commandCenter/TraderStatusHeader';
+import { TodayPlanAndPreTradeCard } from '@/components/commandCenter/TodayPlanAndPreTradeCard';
+import { PsychologyCenterCard } from '@/components/commandCenter/PsychologyCenterCard';
+import { RiskControlCenterCard } from '@/components/commandCenter/RiskControlCenterCard';
+import { StrategyAndMarketCenterCard } from '@/components/commandCenter/StrategyAndMarketCenterCard';
+import { LearningRulesAndMistakesCard } from '@/components/commandCenter/LearningRulesAndMistakesCard';
+import { GrowthAndSkillTreeCard } from '@/components/commandCenter/GrowthAndSkillTreeCard';
+import { ExperimentAndWhatIfLabCard } from '@/components/commandCenter/ExperimentAndWhatIfLabCard';
+import { TradingOperatingSystemBoard } from '@/components/commandCenter/TradingOperatingSystemBoard';
+import { CommandCenterGlobalSearch } from '@/components/commandCenter/CommandCenterGlobalSearch';
 import { EvidenceDrawer } from '@/components/commandCenter/EvidenceDrawer';
-import { MacroMarketIntelligenceWidget } from '@/components/commandCenter/MacroMarketIntelligenceWidget';
-import { EventDetailModal } from '@/components/news/EventDetailModal';
-import { MyAlertsModal } from '@/components/news/MyAlertsModal';
-import { getStoredNewsSettings, saveStoredNewsSettings } from '@/lib/news/newsStore';
-import { NewsEvent } from '@/types/newsIntelligence';
+import { LayoutCustomizerModal } from '@/components/commandCenter/LayoutCustomizerModal';
+import { formatDistanceToNow } from 'date-fns';
 
 const DEFAULT_LAYOUT: CommandCenterLayoutConfig = {
   visibleWidgets: {
     topSummary: true,
+    cockpitSummary: true,
+    statusHeader: true,
     attentionPanel: true,
-    macroIntelligence: true,
-    tradingState: true,
-    quickInvestigation: true,
-    pinnedItems: true,
+    todayPlan: true,
+    tradeIntelligence: true,
+    psychologyCenter: true,
+    riskControl: true,
+    strategyCenter: true,
+    learningRules: true,
+    growthCenter: true,
+    experimentLab: true,
+    aiAnalyst: true,
+    operatingSystemBoard: true,
     recentActivity: true,
-    connectedWorkflow: true
+    pinnedItems: true
   },
   widgetOrder: [
-    'topSummary',
-    'macroIntelligence',
-    'attentionPanel',
-    'tradingState',
-    'quickInvestigation',
-    'pinnedItems',
-    'recentActivity',
-    'connectedWorkflow'
+    'cockpitSummary',
+    'statusHeader',
+    'todayPlan',
+    'psychologyCenter',
+    'riskControl',
+    'strategyCenter',
+    'learningRules',
+    'growthCenter',
+    'experimentLab',
+    'operatingSystemBoard'
   ],
   visibleMetrics: {
     todayPnl: true,
@@ -77,646 +114,370 @@ const DEFAULT_LAYOUT: CommandCenterLayoutConfig = {
     riskUsedToday: true,
     currentStreak: true,
     averageR: true,
+    winRate: true,
+    profitFactor: true,
     ruleAdherence: true,
-    psychologyCompletion: true
+    psychologyCompletion: true,
+    healthScore: true
   },
   recentWindowSize: 10,
   timeRange: '30d'
 };
 
-// Helper to safely load and sanitize layout config
-function getSanitizedLayout(key: string): CommandCenterLayoutConfig {
-  try {
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') {
-        const visibleWidgets = {
-          ...DEFAULT_LAYOUT.visibleWidgets,
-          ...(typeof parsed.visibleWidgets === 'object' && parsed.visibleWidgets !== null ? parsed.visibleWidgets : {})
-        };
-        const visibleMetrics = {
-          ...DEFAULT_LAYOUT.visibleMetrics,
-          ...(typeof parsed.visibleMetrics === 'object' && parsed.visibleMetrics !== null ? parsed.visibleMetrics : {})
-        };
-        const validOrder = Array.isArray(parsed.widgetOrder) && parsed.widgetOrder.length > 0
-          ? parsed.widgetOrder.filter((w: string) => Object.keys(DEFAULT_LAYOUT.visibleWidgets).includes(w))
-          : DEFAULT_LAYOUT.widgetOrder;
-        
-        // Ensure all default widgets are in the list
-        const missingWidgets = DEFAULT_LAYOUT.widgetOrder.filter(w => !validOrder.includes(w));
-
-        return {
-          visibleWidgets,
-          visibleMetrics,
-          widgetOrder: [...validOrder, ...missingWidgets],
-          recentWindowSize: parsed.recentWindowSize || 10,
-          timeRange: parsed.timeRange || '30d'
-        };
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load command center layout config:', e);
-  }
-  return DEFAULT_LAYOUT;
-}
-
-// Helper to safely load pinned items
-function getSanitizedPins(key: string): PinnedItem[] {
-  try {
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(p => p && typeof p === 'object' && p.id);
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load command center pinned items:', e);
-  }
-  return [];
-}
-
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class CommandCenterErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Trading Command Center Error caught:', error, errorInfo);
-  }
-
-  handleReset = () => {
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('tradevault_cc_')) {
-          localStorage.removeItem(key);
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-    this.setState({ hasError: false, error: null });
-    window.location.reload();
-  };
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="max-w-3xl mx-auto my-12 p-8 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 rounded-2xl shadow-sm text-center space-y-4">
-          <div className="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            Command Center Encountered a Display Error
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto">
-            A temporary rendering exception occurred while preparing your operational data. You can restore default preferences or refresh the view.
-          </p>
-          {this.state.error && (
-            <div className="text-[11px] text-left font-mono bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-rose-600 dark:text-rose-400 overflow-x-auto max-h-32">
-              {this.state.error.message || String(this.state.error)}
-            </div>
-          )}
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              onClick={this.handleReset}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Workspace Preferences & Reload</span>
-            </button>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-            >
-              <span>Return to Dashboard</span>
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-const CommandCenterView: React.FC = () => {
+export function CommandCenter() {
   const navigate = useNavigate();
-  const { user, activeDashboard } = useAuth();
-  const { trades = [], strategies = [], learnings = [], rules = [], loading } = useData();
+  const [searchParams] = useSearchParams();
+  const { user, profile, activeDashboard, dashboards } = useAuth();
+  const { trades: rawTrades, rules, learnings, strategies } = useData();
 
+  // Settings & Timeframe
   const [settings, setSettings] = useState<UserSettings>(() => getSettings());
   const [timeRange, setTimeRange] = useState<CommandCenterTimeRange>('30d');
-  const [windowSize, setWindowSize] = useState<ComparisonWindowSize>(10);
-  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<string>('ALL');
+  const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Evidence Drawer state
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [evidenceTitle, setEvidenceTitle] = useState('');
-  const [evidenceSubtitle, setEvidenceSubtitle] = useState('');
-  const [evidenceTrades, setEvidenceTrades] = useState<Trade[]>([]);
-  const [evidenceHighlights, setEvidenceHighlights] = useState<string[]>([]);
-
-  // Macro & News Intelligence State
-  const [newsSettings, setNewsSettings] = useState(() => getStoredNewsSettings());
-  const [selectedNewsEvent, setSelectedNewsEvent] = useState<NewsEvent | null>(null);
-  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
-
-  const handleUpdateNewsSettings = (updates: any) => {
-    setNewsSettings(prev => {
-      const updated = { ...prev, ...updates };
-      saveStoredNewsSettings(updated);
-      return updated;
-    });
-  };
-
-  // Layout configuration persisted per user & dashboard
-  const layoutStorageKey = `tradevault_cc_layout_${user?.uid || 'guest'}_${activeDashboard?.id || 'default'}`;
+  // Layout & Modals
+  const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false);
   const [layoutConfig, setLayoutConfig] = useState<CommandCenterLayoutConfig>(() => {
-    return getSanitizedLayout(layoutStorageKey);
+    try {
+      const key = `tv_cc_layout_${user?.uid || 'default'}`;
+      const saved = localStorage.getItem(key);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_LAYOUT;
   });
 
-  // Re-sync layout when user or dashboard changes
-  useEffect(() => {
-    setLayoutConfig(getSanitizedLayout(layoutStorageKey));
-  }, [layoutStorageKey]);
+  // Evidence Drawer State
+  const [isEvidenceOpen, setIsEvidenceOpen] = useState(false);
+  const [evidenceTitle, setEvidenceTitle] = useState('');
+  const [evidenceExplanation, setEvidenceExplanation] = useState('');
+  const [evidenceTrades, setEvidenceTrades] = useState<Trade[]>([]);
 
-  // Pinned items persisted per user & dashboard
-  const pinsStorageKey = `tradevault_cc_pins_${user?.uid || 'guest'}_${activeDashboard?.id || 'default'}`;
-  const [pinnedItems, setPinnedItems] = useState<PinnedItem[]>(() => {
-    return getSanitizedPins(pinsStorageKey);
-  });
-
-  useEffect(() => {
-    setPinnedItems(getSanitizedPins(pinsStorageKey));
-  }, [pinsStorageKey]);
-
-  // Listen to settings update events
-  useEffect(() => {
-    const handleSettingsUpdate = () => setSettings(getSettings());
-    window.addEventListener('tradevault_settings_updated', handleSettingsUpdate);
-    return () => window.removeEventListener('tradevault_settings_updated', handleSettingsUpdate);
-  }, []);
-
-  // Save layout config changes
-  const handleSaveLayout = (newConfig: CommandCenterLayoutConfig) => {
-    setLayoutConfig(newConfig);
-    try {
-      localStorage.setItem(layoutStorageKey, JSON.stringify(newConfig));
-    } catch (e) {
-      console.error('Failed to persist layout config:', e);
-    }
-  };
-
-  const handleResetLayoutDefaults = () => {
-    setLayoutConfig(DEFAULT_LAYOUT);
-    try {
-      localStorage.removeItem(layoutStorageKey);
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  // Pinned items actions
-  const handlePinAttentionItem = (item: AttentionItem) => {
-    setPinnedItems(prev => {
-      const safePrev = Array.isArray(prev) ? prev : [];
-      const exists = safePrev.some(p => p && p.recordId === item.id);
-      let updated: PinnedItem[];
-      if (exists) {
-        updated = safePrev.filter(p => p.recordId !== item.id);
+  // Filter Trades by Account Scope
+  const scopedTrades = useMemo(() => {
+    let filtered = [...rawTrades];
+    if (selectedAccount !== 'ALL') {
+      if (selectedAccount === 'MANUAL') {
+        filtered = filtered.filter(t => t.tradeSource !== 'mt5' && t.tradeSource !== 'competition_mt5' && !t.mt5TicketId);
+      } else if (selectedAccount.startsWith('mt5_')) {
+        filtered = filtered.filter(t => 
+          t.tradingAccountId === selectedAccount || 
+          t.mt5AccountId === selectedAccount || 
+          t.id.startsWith(selectedAccount)
+        );
       } else {
-        const newPin: PinnedItem = {
-          id: `pin-${Date.now()}`,
-          recordId: item.id,
-          type: item.category === 'rules' ? 'rule' : item.category === 'strategy' ? 'strategy' : 'ai_insight',
-          title: item.title,
-          subtitle: item.explanation,
-          pinnedAt: Date.now(),
-          route: item.investigateAction?.route || '/command-center',
-          badge: item.category ? item.category.toUpperCase() : 'ALERT'
-        };
-        updated = [newPin, ...safePrev];
+        filtered = filtered.filter(t => (t.accountId || t.dashboardId || 'Default') === selectedAccount);
       }
-      try {
-        localStorage.setItem(pinsStorageKey, JSON.stringify(updated));
-      } catch (e) {
-        // ignore
-      }
-      return updated;
-    });
-  };
-
-  const handleRemovePin = (pinId: string) => {
-    setPinnedItems(prev => {
-      const safePrev = Array.isArray(prev) ? prev : [];
-      const updated = safePrev.filter(p => p.id !== pinId);
-      try {
-        localStorage.setItem(pinsStorageKey, JSON.stringify(updated));
-      } catch (e) {
-        // ignore
-      }
-      return updated;
-    });
-  };
-
-  const handleClearAllPins = () => {
-    setPinnedItems([]);
-    try {
-      localStorage.removeItem(pinsStorageKey);
-    } catch (e) {
-      // ignore
     }
-  };
+    return filtered;
+  }, [rawTrades, selectedAccount]);
 
-  const isItemPinned = (recordId: string) => {
-    return Array.isArray(pinnedItems) && pinnedItems.some(p => p && p.recordId === recordId);
-  };
+  // Trades in Time Range
+  const rangeTrades = useMemo(() => {
+    return filterTradesByTimeRange(scopedTrades, timeRange);
+  }, [scopedTrades, timeRange]);
 
-  // Calculations with safe fallbacks
-  const safeTrades = Array.isArray(trades) ? trades : [];
-  const safeStrategies = Array.isArray(strategies) ? strategies : [];
-  const safeRules = Array.isArray(rules) ? rules : [];
-  const safeLearnings = Array.isArray(learnings) ? learnings : [];
-
+  // Derived Analytics via Engines
   const summary = useMemo(() => {
-    try {
-      return calculateCommandCenterSummary(safeTrades, timeRange, settings);
-    } catch (e) {
-      console.error('Error calculating command center summary:', e);
-      return calculateCommandCenterSummary([], timeRange, settings);
-    }
-  }, [safeTrades, timeRange, settings]);
+    return calculateCommandCenterSummary(scopedTrades, timeRange, settings);
+  }, [scopedTrades, timeRange, settings]);
+
+  const healthScore = useMemo(() => {
+    return calculateTraderHealthScore(rangeTrades, rules, learnings, settings);
+  }, [rangeTrades, rules, learnings, settings]);
 
   const attentionItems = useMemo(() => {
-    try {
-      return generateAttentionItems(safeTrades, safeStrategies, safeRules, safeLearnings, settings, windowSize);
-    } catch (e) {
-      console.error('Error generating attention items:', e);
-      return [];
-    }
-  }, [safeTrades, safeStrategies, safeRules, safeLearnings, settings, windowSize]);
+    return generateAttentionItems(scopedTrades, strategies, rules, learnings, settings, 10);
+  }, [scopedTrades, strategies, rules, learnings, settings]);
 
-  const currentState = useMemo(() => {
-    try {
-      return calculateCurrentTradingState(safeTrades, windowSize);
-    } catch (e) {
-      console.error('Error calculating current trading state:', e);
-      return calculateCurrentTradingState([], windowSize);
-    }
-  }, [safeTrades, windowSize]);
+  const processActions = useMemo(() => {
+    return generateProcessActionItems(scopedTrades, rules, learnings, strategies, settings);
+  }, [scopedTrades, rules, learnings, strategies, settings]);
 
-  const timelineEvents = useMemo(() => {
-    try {
-      return generateRecentActivityTimeline(safeTrades, safeStrategies, safeLearnings, safeRules);
-    } catch (e) {
-      console.error('Error generating timeline events:', e);
-      return [];
-    }
-  }, [safeTrades, safeStrategies, safeLearnings, safeRules]);
+  const behavioralPatterns = useMemo(() => {
+    return detectBehavioralPatterns(rangeTrades, settings);
+  }, [rangeTrades, settings]);
 
-  // Investigation / Evidence Drawer handlers
-  const handleInvestigateAttention = (item: AttentionItem) => {
-    if (item.investigateAction?.route) {
-      navigate(item.investigateAction.route);
-      return;
-    }
-    const tradeIds = item.tradeIds || [];
-    const matched = safeTrades.filter(t => tradeIds.includes(t.id));
+  const plannedVsActualRisk = useMemo(() => {
+    return calculatePlannedVsActualRisk(rangeTrades, settings.risk?.defaultRisk || settings.defaultRiskPercent || 1.0);
+  }, [rangeTrades, settings]);
+
+  const drawdownProfile = useMemo(() => {
+    return calculateDrawdownProfile(rangeTrades);
+  }, [rangeTrades]);
+
+  const mistakeClusters = useMemo(() => {
+    return calculateMistakeClusters(rangeTrades);
+  }, [rangeTrades]);
+
+  const { leaks, strengths } = useMemo(() => {
+    return identifyPersonalLeaksAndStrengths(rangeTrades, rules);
+  }, [rangeTrades, rules]);
+
+  const traderLevel = useMemo(() => {
+    return calculateTraderLevel(scopedTrades, rules, learnings, strategies);
+  }, [scopedTrades, rules, learnings, strategies]);
+
+  const whatIfResults = useMemo(() => {
+    return runWhatIfSimulations(rangeTrades, settings);
+  }, [rangeTrades, settings]);
+
+  const hypotheses = useMemo(() => {
+    return evaluateHypotheses(rangeTrades);
+  }, [rangeTrades]);
+
+  // Manual Refresh handler
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    setLastUpdated(Date.now());
+    setTimeout(() => setIsRefreshing(false), 500);
+  }, []);
+
+  // Investigation Trigger
+  const handleInvestigateAttention = useCallback((item: AttentionItem) => {
+    const matched = scopedTrades.filter(t => item.tradeIds.includes(t.id));
     setEvidenceTitle(item.title);
-    setEvidenceSubtitle(item.whyText);
-    setEvidenceTrades(matched.length > 0 ? matched : safeTrades.slice(0, 5));
-    setEvidenceHighlights(item.category === 'risk' ? ['riskPercent', 'risk'] : []);
-    setEvidenceOpen(true);
-  };
+    setEvidenceExplanation(item.explanation);
+    setEvidenceTrades(matched.length > 0 ? matched : scopedTrades.slice(0, 5));
+    setIsEvidenceOpen(true);
+  }, [scopedTrades]);
 
-  const handleInspectCohortTrades = (tradeIds: string[], label: string) => {
-    const matched = safeTrades.filter(t => (tradeIds || []).includes(t.id));
-    setEvidenceTitle(label);
-    setEvidenceSubtitle(`Grounded inspection of ${matched.length} recorded trade records in this cohort.`);
+  const handleInvestigatePattern = useCallback((pattern: BehavioralPattern) => {
+    const matched = scopedTrades.filter(t => pattern.supportingTradeIds.includes(t.id));
+    setEvidenceTitle(pattern.name);
+    setEvidenceExplanation(pattern.evidenceNotes);
     setEvidenceTrades(matched);
-    setEvidenceHighlights(['riskPercent', 'emotions', 'ruleAdherence', 'pnl']);
-    setEvidenceOpen(true);
-  };
+    setIsEvidenceOpen(true);
+  }, [scopedTrades]);
 
-  const handleOpenTradeDrawer = (matchedTrades: Trade[], title: string) => {
+  const handleInspectSpecificTrades = useCallback((title: string, ids: string[]) => {
+    const matched = scopedTrades.filter(t => ids.includes(t.id));
     setEvidenceTitle(title);
-    setEvidenceSubtitle(`Found ${matchedTrades.length} recorded trades matching your query criteria.`);
-    setEvidenceTrades(matchedTrades);
-    setEvidenceHighlights([]);
-    setEvidenceOpen(true);
-  };
+    setEvidenceExplanation(`Showing ${matched.length} supporting trade records from your journal.`);
+    setEvidenceTrades(matched);
+    setIsEvidenceOpen(true);
+  }, [scopedTrades]);
 
-  // Count metrics for workflow banner
-  const workflowCounts = {
-    trades: safeTrades.length,
-    psychology: safeTrades.filter(t => {
-      const hasEmotions = Array.isArray(t.emotions) ? t.emotions.length > 0 : Boolean(t.emotions);
-      return hasEmotions || t.confidence;
-    }).length,
-    learnings: safeLearnings.length,
-    rules: safeRules.length,
-    strategies: safeStrategies.length
-  };
-
-  // Widget rendering by layout config order
-  const renderWidget = (widgetKey: string) => {
-    const isVisible = layoutConfig?.visibleWidgets?.[widgetKey as keyof CommandCenterLayoutConfig['visibleWidgets']];
-    if (isVisible === false) {
-      return null;
+  const handleSelectSingleTrade = useCallback((tradeId: string) => {
+    const matched = scopedTrades.filter(t => t.id === tradeId);
+    if (matched.length > 0) {
+      setEvidenceTitle(`Trade Inspection: ${matched[0].pair || matched[0].market}`);
+      setEvidenceExplanation(`Detailed review of trade execution parameters and psychology.`);
+      setEvidenceTrades(matched);
+      setIsEvidenceOpen(true);
     }
-
-    switch (widgetKey) {
-      case 'topSummary':
-        return (
-          <CommandCenterSummaryCards 
-            key="topSummary"
-            summary={summary}
-            visibleMetrics={layoutConfig?.visibleMetrics || DEFAULT_LAYOUT.visibleMetrics}
-          />
-        );
-      case 'macroIntelligence':
-        return (
-          <MacroMarketIntelligenceWidget
-            key="macroIntelligence"
-            timezone={newsSettings.timezone}
-            trades={safeTrades}
-            onSelectEvent={(ev) => setSelectedNewsEvent(ev)}
-            onOpenMyAlerts={() => setIsAlertsModalOpen(true)}
-          />
-        );
-      case 'attentionPanel':
-        return (
-          <AttentionPanel 
-            key="attentionPanel"
-            items={attentionItems}
-            onInvestigate={handleInvestigateAttention}
-            onPinItem={handlePinAttentionItem}
-            isPinned={isItemPinned}
-          />
-        );
-      case 'tradingState':
-        return (
-          <CurrentTradingStateCard 
-            key="tradingState"
-            state={currentState}
-            onWindowSizeChange={(size) => setWindowSize(size)}
-            onInspectCohort={handleInspectCohortTrades}
-          />
-        );
-      case 'quickInvestigation':
-        return (
-          <QuickInvestigationBar 
-            key="quickInvestigation"
-            trades={safeTrades}
-            strategies={safeStrategies}
-            rules={safeRules}
-            learnings={safeLearnings}
-            settings={settings}
-            onOpenTradeDrawer={handleOpenTradeDrawer}
-          />
-        );
-      case 'pinnedItems':
-        return (
-          <PinnedItemsWidget 
-            key="pinnedItems"
-            pinnedItems={pinnedItems}
-            onRemovePin={handleRemovePin}
-            onClearAllPins={handleClearAllPins}
-          />
-        );
-      case 'recentActivity':
-        return (
-          <RecentActivityTimelineWidget 
-            key="recentActivity"
-            events={timelineEvents}
-          />
-        );
-      case 'connectedWorkflow':
-        return (
-          <ConnectedWorkflowBanner 
-            key="connectedWorkflow"
-            counts={workflowCounts}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto space-y-6 pb-20 pt-8 animate-in fade-in">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center animate-pulse">
-            <Compass className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="space-y-1.5">
-            <div className="h-5 w-48 bg-slate-200 dark:bg-slate-800 rounded-md animate-pulse" />
-            <div className="h-3.5 w-72 bg-slate-100 dark:bg-slate-800/60 rounded-md animate-pulse" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          {[...Array(7)].map((_, i) => (
-            <div key={i} className="h-24 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 animate-pulse" />
-          ))}
-        </div>
-        <div className="h-48 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 animate-pulse" />
-      </div>
-    );
-  }
-
-  const safeOrder = Array.isArray(layoutConfig?.widgetOrder) && layoutConfig.widgetOrder.length > 0 
-    ? layoutConfig.widgetOrder 
-    : DEFAULT_LAYOUT.widgetOrder;
+  }, [scopedTrades]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20 pt-2 animate-in fade-in">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.08] pb-5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <span className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/15">
-              <Compass className="w-6 h-6" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                  Trading Command Center
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-                  Live Operations
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Centralized observation and investigation workspace analyzing your recorded {activeDashboard ? `"${activeDashboard.name}"` : ''} trading activity.
-              </p>
+    <div className="space-y-5 sm:space-y-6 max-w-7xl mx-auto pb-16 min-w-0">
+      {/* 1. TOP COMMAND BAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-white/[0.08] shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 sm:p-2.5 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 shrink-0">
+            <Compass className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                Command Center
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/60">
+                Trading Cockpit OS
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center gap-1">
+                <Eye className="w-3 h-3 text-slate-400" /> Read-Only
+              </span>
             </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Observe → Understand → Diagnose → Decide → Execute → Review → Learn → Improve.
+            </p>
           </div>
         </div>
 
-        {/* Global Controls: Time Range & Layout Customizer */}
-        <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
-          {/* Read-Only Badge */}
-          <div className="flex items-center gap-1.5 text-xs bg-white/70 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-            <span className="hidden sm:inline">Read-Only</span>
-          </div>
-
-          {/* Time Range Selector */}
-          <div className="flex items-center bg-slate-100/80 dark:bg-slate-800/60 p-0.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08]">
-            {(['today', '7d', '30d', '90d', 'all'] as CommandCenterTimeRange[]).map((r) => {
-              const labels: Record<CommandCenterTimeRange, string> = {
-                today: 'Today',
-                '7d': '7D',
-                '30d': '30D',
-                '90d': '90D',
-                all: 'All'
-              };
-              return (
-                <button
-                  key={r}
-                  onClick={() => setTimeRange(r)}
-                  className={`px-2.5 py-1 text-xs rounded-lg font-semibold transition-all ${
-                    timeRange === r
-                      ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {labels[r]}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Customize Workspace Button */}
-          <button
-            onClick={() => setIsCustomizerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] hover:bg-white dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs transition-colors cursor-pointer"
+        {/* Controls: Account, Time Range, Refresh */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Account Filter */}
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Customize</span>
+            <option value="ALL">Account: All</option>
+            <option value="MANUAL">Manual Journal</option>
+            {dashboards?.map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+
+          {/* Time Range Pills */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
+            {(['today', '7d', '30d', '90d', 'all'] as CommandCenterTimeRange[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setTimeRange(r)}
+                className={`px-2.5 py-1 rounded-lg uppercase text-[11px] transition-all cursor-pointer ${
+                  timeRange === r
+                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                {r === 'all' ? 'All' : r}
+              </button>
+            ))}
+          </div>
+
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            title="Refresh Command Center derived analytics"
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Empty State if 0 trades recorded */}
-      {safeTrades.length === 0 ? (
-        <div className="p-12 text-center glass-card rounded-2xl shadow-xs space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
-            <Compass className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Your Command Center will become more informative as you record trades.
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-2">
-              As you enter trades, log emotions, and test strategies, this workspace automatically observes risk drift, rule compliance, behavioral patterns, and actionable items.
-            </p>
-          </div>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => navigate('/add')}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Record First Trade</span>
-            </button>
-            <button
-              onClick={() => navigate('/learning-rules?tab=rules')}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-            >
-              <BookOpenCheck className="w-4 h-4" />
-              <span>Set Trading Rules</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Normal Layout Rendering */
-        <div className="space-y-6">
-          {safeOrder.map(widgetKey => renderWidget(widgetKey))}
-        </div>
-      )}
-
-      {/* Layout Customizer Modal */}
-      <LayoutCustomizerModal 
-        isOpen={isCustomizerOpen}
-        onClose={() => setIsCustomizerOpen(false)}
-        config={layoutConfig}
-        onSaveConfig={handleSaveLayout}
-        onResetDefaults={handleResetLayoutDefaults}
+      {/* 2. UNIVERSAL COMMAND SEARCH BAR */}
+      <CommandCenterGlobalSearch
+        trades={scopedTrades}
+        strategies={strategies}
+        rules={rules}
+        learnings={learnings}
+        onSelectTrade={handleSelectSingleTrade}
+        onSelectRule={() => navigate('/learning-rules')}
+        onSelectStrategy={() => navigate('/strategies')}
       />
 
-      {/* Evidence Drawer for Underlying Trades */}
-      <EvidenceDrawer 
-        isOpen={evidenceOpen}
-        onClose={() => setEvidenceOpen(false)}
+      {/* 3. 3-COLUMN COCKPIT SUMMARY (WHERE I AM | WHAT NEEDS ATTENTION | WHAT TO DO NOW) */}
+      <CockpitSummaryBar
+        summary={summary}
+        attentionItems={attentionItems}
+        processActions={processActions}
+        onInvestigateAttention={handleInvestigateAttention}
+        onExecuteAction={(act) => {
+          if (act.supportingTradeIds && act.supportingTradeIds.length > 0) {
+            handleInspectSpecificTrades(act.title, act.supportingTradeIds);
+          } else {
+            navigate(act.route);
+          }
+        }}
+      />
+
+      {/* 4. TRADER STATUS & TRANSPARENT HEALTH SCORE */}
+      <TraderStatusHeader
+        summary={summary}
+        healthScore={healthScore}
+      />
+
+      {/* 5. TODAY'S TRADING PLAN & PRE-TRADE CHECKPOINT */}
+      <TodayPlanAndPreTradeCard
+        userId={user?.uid || 'default'}
+        onOpenAddTrade={() => navigate('/add')}
+      />
+
+      {/* 6. PSYCHOLOGY & BEHAVIORAL COMMAND CENTER */}
+      <PsychologyCenterCard
+        trades={rangeTrades}
+        patterns={behavioralPatterns}
+        onInvestigatePattern={handleInvestigatePattern}
+      />
+
+      {/* 7. RISK CONTROL CENTER & DRAWDOWN PROFILE */}
+      <RiskControlCenterCard
+        trades={rangeTrades}
+        plannedVsActual={plannedVsActualRisk}
+        drawdownProfile={drawdownProfile}
+        onSelectTrade={handleSelectSingleTrade}
+      />
+
+      {/* 8. STRATEGY, SESSION & MARKET INTELLIGENCE */}
+      <StrategyAndMarketCenterCard
+        trades={rangeTrades}
+        strategies={strategies}
+        onSelectMarket={() => {}}
+        onSelectStrategy={() => navigate('/strategies')}
+      />
+
+      {/* 9. MISTAKE BANK, PERSONAL LEAKS & RULES */}
+      <LearningRulesAndMistakesCard
+        mistakes={mistakeClusters}
+        leaks={leaks}
+        strengths={strengths}
+        rules={rules}
+        learnings={learnings}
+        onInspectTradeIds={handleInspectSpecificTrades}
+      />
+
+      {/* 10. GROWTH CENTER & TRADER SKILL TREE */}
+      <GrowthAndSkillTreeCard
+        traderLevel={traderLevel}
+        userId={user?.uid || 'default'}
+      />
+
+      {/* 11. EXPERIMENT & HISTORICAL WHAT-IF SCENARIO LAB */}
+      <ExperimentAndWhatIfLabCard
+        whatIfResults={whatIfResults}
+        hypotheses={hypotheses}
+      />
+
+      {/* 12. MY TRADING OPERATING SYSTEM CONSOLIDATED BOARD */}
+      <TradingOperatingSystemBoard
+        rules={rules}
+        strategies={strategies}
+        leaks={leaks}
+        strengths={strengths}
+        plan={{
+          todayFocus: 'Execute with strict 1.0% risk discipline and wait for confirmation.',
+          riskLimitPercent: settings.risk?.defaultRisk || settings.defaultRiskPercent || 1.0,
+          maxTrades: 3,
+          preferredSessions: ['London', 'New York'],
+          preferredStrategies: strategies.map(s => s.name),
+          rulesToRemember: rules.map(r => r.name || r.text),
+          psychologyReminder: 'Preserving capital and discipline matters far more than catching every tick.',
+          learningObjective: 'Master patient execution at key higher timeframe levels.',
+          postTradeRequirement: 'Log screenshot and emotional tags immediately after trade closure.',
+          updatedAt: Date.now()
+        }}
+        onOpenRules={() => navigate('/learning-rules')}
+        onOpenStrategies={() => navigate('/strategies')}
+      />
+
+      {/* SUPPORTING EVIDENCE DRAWER */}
+      <EvidenceDrawer
+        isOpen={isEvidenceOpen}
+        onClose={() => setIsEvidenceOpen(false)}
         title={evidenceTitle}
-        subtitle={evidenceSubtitle}
+        subtitle={evidenceExplanation}
         trades={evidenceTrades}
-        highlightFields={evidenceHighlights}
       />
 
-      {/* Economic Event Intelligence Detail Modal */}
-      {selectedNewsEvent && (
-        <EventDetailModal
-          event={selectedNewsEvent}
-          onClose={() => setSelectedNewsEvent(null)}
-          timezone={newsSettings.timezone}
-          userNote={newsSettings.userNotes[selectedNewsEvent.id] || ''}
-          onSaveNote={(id, note) => {
-            handleUpdateNewsSettings({
-              userNotes: { ...newsSettings.userNotes, [id]: note }
-            });
-          }}
-          isWatchlisted={(newsSettings.watchlistedEventIds || []).includes(selectedNewsEvent.id)}
-          onToggleWatchlist={(id) => {
-            const list = newsSettings.watchlistedEventIds || [];
-            const next = list.includes(id) ? list.filter(item => item !== id) : [...list, id];
-            handleUpdateNewsSettings({ watchlistedEventIds: next });
-          }}
-        />
-      )}
-
-      {/* My Alerts Modal */}
-      <MyAlertsModal
-        isOpen={isAlertsModalOpen}
-        onClose={() => setIsAlertsModalOpen(false)}
-        settings={newsSettings}
-        onUpdateSettings={handleUpdateNewsSettings}
-        onSelectEvent={(eventId) => {
-          const ev = safeTrades; // search in NEWS_EVENTS
-          import('@/data/newsIntelligenceData').then(m => {
-            const found = m.NEWS_EVENTS.find(e => e.id === eventId);
-            if (found) setSelectedNewsEvent(found);
-          });
+      {/* LAYOUT CUSTOMIZER MODAL */}
+      <LayoutCustomizerModal
+        isOpen={isLayoutModalOpen}
+        onClose={() => setIsLayoutModalOpen(false)}
+        config={layoutConfig}
+        onSaveConfig={(newConfig) => {
+          setLayoutConfig(newConfig);
+          try {
+            const key = `tv_cc_layout_${user?.uid || 'default'}`;
+            localStorage.setItem(key, JSON.stringify(newConfig));
+          } catch {}
+          setIsLayoutModalOpen(false);
+        }}
+        onResetDefaults={() => {
+          setLayoutConfig(DEFAULT_LAYOUT);
+          try {
+            const key = `tv_cc_layout_${user?.uid || 'default'}`;
+            localStorage.setItem(key, JSON.stringify(DEFAULT_LAYOUT));
+          } catch {}
+          setIsLayoutModalOpen(false);
         }}
       />
     </div>
   );
-};
-
-export const CommandCenter: React.FC = () => {
-  return (
-    <CommandCenterErrorBoundary>
-      <CommandCenterView />
-    </CommandCenterErrorBoundary>
-  );
-};
+}
 
 export default CommandCenter;

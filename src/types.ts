@@ -1,8 +1,10 @@
+import { MT5ScreenshotMetadata } from './types/mt5Screenshot';
+
 export type Market = 'XAU/USD' | 'BTC/USD' | 'ETH/USD' | 'SOL/USD' | 'XRP/USD' | 'EUR/USD' | 'GBP/USD' | 'JPY/USD' | string;
 export type Direction = 'BUY' | 'SELL';
 export type Session = 'Asian' | 'London' | 'New York' | 'Sydney' | string;
 export type Emotion = 'Confident' | 'Unconfident' | string;
-export type Result = 'WIN' | 'LOSS' | 'BREAK EVEN' | 'PENDING' | '';
+export type Result = 'WIN' | 'LOSS' | 'BREAK EVEN' | 'PENDING' | 'COST TO COST' | '';
 export type Timeframe = '1m' | '3m' | '5m' | '15m' | '30m' | '1H' | '4H' | 'Daily' | 'Other' | string;
 export type MarketCondition = 'Trending' | 'Ranging' | 'Breakout' | 'Reversal' | 'Choppy' | 'Other' | string;
 
@@ -48,6 +50,7 @@ export interface Trade {
   screenshots?: { before?: string; during?: string; after?: string };
   entryScreenshot?: string; // Execution / Entry screenshot
   exitScreenshot?: string; // Close / Exit screenshot
+  extraImages?: string[]; // Extra screenshots, trade receipts, or MT5 screenshots
   
   notes?: string;
   mistake?: string;
@@ -111,18 +114,65 @@ export interface Trade {
   newsImpact?: 'LOW' | 'MEDIUM' | 'HIGH';
   newsProximityMinutes?: number;
 
-  // MT5 Automatic Import Integration
-  tradeSource?: 'manual' | 'mt5';
+  // MT5 & Competition Source Integration
+  tradeSource?: 'manual' | 'mt5' | 'mt5_screenshot' | 'mt5_sync' | 'competition_manual' | 'competition_mt5' | 'chart';
   externalTradeId?: string;
+  sourceTradeKey?: string;
+  provider?: string;
+  providerAccountId?: string;
+  providerTradeId?: string;
   tradingAccountId?: string;
   mt5AccountId?: string;
+  mt5DealId?: string;
+  mt5OrderId?: string;
+  mt5PositionId?: string;
+  orderId?: string;
+  rawSymbol?: string;
+  normalizedMarket?: string;
+  mappedMarket?: string;
+  symbolMappingSource?: string;
   brokerServer?: string;
+  broker?: string;
+  server?: string;
+  accountCurrency?: string;
+  mt5TicketId?: string;
+  lotSize?: number;
+  profit?: number;
+  loss?: number;
+  grossPnl?: number;
+  fees?: number;
+  balance?: number;
+  equity?: number;
+  openTime?: number;
+  closeTime?: number;
+  openTimeUtc?: number;
+  closeTimeUtc?: number;
+  brokerTimezone?: string;
+  duration?: number;
+  mt5ServerTimezone?: string;
+  userTimezone?: string;
+  displayTimezone?: string;
+  rrString?: string;
+  competitionId?: string;
   importedAt?: number;
   syncId?: string;
   commission?: number;
   swap?: number;
   exitTime?: number;
   durationSeconds?: number;
+
+  // MT5 Screenshot Attachment & Metadata
+  mt5ScreenshotUrl?: string;
+  mt5ScreenshotMetadata?: MT5ScreenshotMetadata;
+  mt5AnalysisId?: string;
+  mt5CurrentImageId?: string;
+
+  // Field source provenance & Smart features
+  fieldSources?: Record<string, string>;
+  quickResultMode?: boolean;
+
+  // Professional Charting & Setup Link
+  chartContext?: ChartContextSnapshot;
 
   // Change / Audit History
   auditHistory?: {
@@ -131,6 +181,80 @@ export interface Trade {
     newValue?: any;
     changedAt: number;
   }[];
+}
+
+export interface ChartContextSnapshot {
+  symbol: string;
+  timeframe: string;
+  entry: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  direction: Direction;
+  plannedRisk?: number;
+  plannedReward?: number;
+  plannedRrRatio?: number;
+  indicators?: Record<string, boolean>;
+  source?: string;
+  snapshotTimestamp: number;
+  drawingIds?: string[];
+  drawings?: ChartDrawing[];
+}
+
+export type ChartDrawingType = 
+  | 'cursor'
+  | 'trendline' 
+  | 'horizontal'
+  | 'horizontal_line' 
+  | 'horizontal_ray'
+  | 'vertical_line'
+  | 'rectangle' 
+  | 'circle'
+  | 'arrow' 
+  | 'text' 
+  | 'long_position' 
+  | 'short_position' 
+  | 'entry_marker'
+  | 'sl_marker'
+  | 'tp_marker'
+  | 'price_measure'
+  | 'time_measure'
+  | 'price_alert';
+
+export interface ChartDrawingPoint {
+  time: number; // Unix timestamp in seconds
+  price: number;
+}
+
+export interface ChartDrawingStyle {
+  color?: string;
+  lineWidth?: number;
+  lineStyle?: 'solid' | 'dashed' | 'dotted' | string;
+  fillColor?: string;
+  fontSize?: number;
+}
+
+export interface ChartDrawing {
+  id: string;
+  userId: string;
+  dashboardId: string;
+  symbol: string;
+  timeframe?: string;
+  type: ChartDrawingType | string;
+  points: ChartDrawingPoint[];
+  style: ChartDrawingStyle;
+  // Extended planning and presentation properties
+  color?: string;
+  lineWidth?: number;
+  lineStyle?: string;
+  text?: string;
+  entryPrice?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  riskReward?: number;
+  filled?: boolean;
+  isLocked?: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type TradingStyle = 'Scalping' | 'Day Trading' | 'Swing Trading' | 'Position Trading' | 'Other';
@@ -386,6 +510,8 @@ export interface TradingRule {
   id: string;
   userId: string;
   dashboardId: string;
+  name?: string;
+  description?: string;
   text: string;
   category: RuleCategory;
   priority: RulePriority;
@@ -476,30 +602,67 @@ export interface ParticipantStats {
 }
 
 export type CompetitionRuleType =
+  // RISK & LOSS (1-10)
+  | 'MAX_TOTAL_LOSS'
   | 'MAX_DRAWDOWN'
   | 'MAX_DAILY_LOSS'
   | 'MAX_WEEKLY_LOSS'
+  | 'MAX_MONTHLY_LOSS'
+  | 'MAX_LOSS_PER_TRADE'
   | 'MAX_RISK_PER_TRADE'
   | 'MAX_TOTAL_RISK'
-  | 'MAX_TRADES_TOTAL'
-  | 'MAX_TRADES_PER_DAY'
-  | 'MAX_DAILY_TRADES'
-  | 'MIN_TRADES_TOTAL'
   | 'MAX_POSITION_SIZE'
   | 'MAX_LEVERAGE'
-  | 'ALLOWED_MARKETS'
-  | 'BLOCKED_MARKETS'
-  | 'PROHIBITED_INSTRUMENTS'
+  // TRADING FREQUENCY (11-17)
+  | 'MAX_TRADES_PER_DAY'
+  | 'MAX_TRADES_PER_WEEK'
+  | 'MAX_TRADES_TOTAL'
+  | 'MAX_LOSS_STREAK'
+  | 'MAX_REENTRIES'
+  | 'MAX_SAME_SYMBOL_TRADES_PER_DAY'
+  | 'MAX_OPEN_POSITIONS'
+  // TRADING BEHAVIOR (18-24)
+  | 'NO_OVERTRADING'
+  | 'NO_REVENGE_TRADING'
+  | 'NO_EXCESSIVE_REENTRY'
+  | 'NO_RISK_ESCALATION'
+  | 'NO_LOT_SIZE_ESCALATION'
+  | 'NO_TRADING_AFTER_DAILY_LIMIT'
+  | 'NO_TRADING_AFTER_VIOLATION'
+  // NEWS (25-30)
+  | 'NEWS_TRADING_ALLOWED'
+  | 'NO_NEWS_TRADING'
+  | 'RESTRICTED_NEWS_WINDOW'
+  | 'RESTRICTED_INSTRUMENTS_DURING_NEWS'
+  | 'MIN_TIME_BEFORE_NEWS'
+  | 'MIN_TIME_AFTER_NEWS'
+  // TIME (31-37)
+  | 'ALLOWED_TRADING_HOURS'
+  | 'BLOCKED_TRADING_HOURS'
   | 'ALLOWED_SESSIONS'
   | 'BLOCKED_SESSIONS'
+  | 'NO_WEEKEND_TRADING'
+  | 'NO_OVERNIGHT_TRADING'
+  | 'MAX_TRADE_DURATION'
+  // MARKETS (38-40)
+  | 'ALLOWED_MARKETS'
+  | 'BLOCKED_MARKETS'
+  | 'MAX_CORRELATED_EXPOSURE'
+  // ACCOUNT OBJECTIVES (41-45)
+  | 'PROFIT_TARGET'
+  | 'MIN_TRADING_DAYS'
+  | 'MAX_TRADING_DAYS'
+  | 'CONSISTENCY_RULE'
+  | 'BEST_DAY_PROFIT_LIMIT'
+  // CUSTOM (46)
+  | 'CUSTOM_RULE'
+  // Legacy aliases
+  | 'MAX_DAILY_TRADES'
+  | 'MIN_TRADES_TOTAL'
+  | 'PROHIBITED_INSTRUMENTS'
   | 'MIN_HOLDING_TIME_SECONDS'
-  | 'MAX_OPEN_POSITIONS'
   | 'MANDATORY_STOP_LOSS'
-  | 'MAX_LOSS_PER_TRADE'
-  | 'MAX_LOSS_STREAK'
-  | 'TRADING_END_TIME'
-  | 'NO_TRADING_AFTER_VIOLATION'
-  | 'CUSTOM_RULE';
+  | 'TRADING_END_TIME';
 
 export type RuleSeverity = 'DISQUALIFY' | 'WARNING' | 'INFO';
 export type RuleEnforcement = 'AUTOMATIC' | 'MANUAL_REVIEW' | 'INSTANT_DISQUALIFY' | 'STRICT_REJECT' | 'AUDIT_LOG_FLAG';
@@ -774,8 +937,20 @@ export interface SharedTradeProjection {
   inPersonalJournal?: boolean;
   personalTradeId?: string;
   editsCount?: number;
+
+  // Source & Violation tracking
+  tradeSource?: 'manual' | 'mt5' | 'competition_manual' | 'competition_mt5';
+  tradingAccountId?: string;
+  mt5AccountId?: string;
+  durationSeconds?: number;
+  hasViolation?: boolean;
+  violationRuleName?: string;
+  violationSeverity?: RuleSeverity;
+  violationDetails?: string;
 }
 
 export type CompetitionTrade = SharedTradeProjection;
+
+export type Rule = TradingRule;
 
 export * from './types/mt5';

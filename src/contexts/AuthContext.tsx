@@ -39,7 +39,7 @@ interface AuthContextType {
   deleteAccount: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -70,51 +70,113 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [activeDashboard, setActiveDashboard] = useState<Dashboard | null>(null);
 
+  // Helper with safe timeout for background network operations
+  const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+    ]);
+  };
+
   useEffect(() => {
+    // Safety timer: ensure loading state is released even if network is slow or offline
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTimeout(safetyTimer);
       setUser(firebaseUser);
-      if (firebaseUser) {
+
+      if (!firebaseUser) {
+        setIsAdmin(false);
+        setProfile(null);
+        setDashboards([]);
+        setActiveDashboard(null);
+        setLoading(false);
+        return;
+      }
+
+      // Check admin status immediately for bootstrap super admin
+      const isBootstrapEmail = firebaseUser.email?.toLowerCase() === 'aryanrana73111@gmail.com';
+      if (isBootstrapEmail) {
+        setIsAdmin(true);
+      }
+
+      // 1. Instantly provide fallback profile & dashboard so UI renders with zero blank delay
+      const initialProfile: UserProfile = {
+        uid: firebaseUser.uid,
+        fullName: firebaseUser.displayName || 'Trader',
+        email: firebaseUser.email || '',
+        tradingStyle: 'Day Trading',
+        tradingExperience: '',
+        preferredMarkets: '',
+        preferredTradingSession: '',
+        defaultAccountType: 'Personal Live',
+        bio: '',
+        avatarUrl: firebaseUser.photoURL || '',
+        onboardingCompleted: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      setProfile((prev) => prev || initialProfile);
+
+      const savedDashId = localStorage.getItem('tradevault_last_dashboard');
+      const fallbackDash: Dashboard = {
+        id: savedDashId || 'default-dash',
+        name: 'My Trading Journal',
+        currency: 'USD',
+        startingBalance: 10000,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      setActiveDashboard((prev) => prev || fallbackDash);
+      setDashboards((prev) => (prev.length > 0 ? prev : [fallbackDash]));
+
+      // 2. Immediately unblock the UI gate!
+      setLoading(false);
+
+      // 3. Asynchronously synchronize user metadata, profile, and dashboards in the background
+      (async () => {
         setLoadingProfile(true);
         try {
-          // Check Admin Authorization
+          // Token claims check
           const tokenResult = await firebaseUser.getIdTokenResult().catch(() => null);
           const hasAdminClaim = tokenResult?.claims?.admin === true;
-          const isBootstrapEmail = firebaseUser.email?.toLowerCase() === 'aryanrana73111@gmail.com';
-          
+
           let isDocAdmin = false;
           try {
-            const adminDocSnap = await getDoc(doc(db, 'admins', firebaseUser.uid));
-            isDocAdmin = adminDocSnap.exists();
-          } catch {
-            // Ignore rule error for normal user
-          }
+            const adminDocSnap = await withTimeout(
+              getDoc(doc(db, 'admins', firebaseUser.uid)),
+              2500,
+              null
+            );
+            if (adminDocSnap && adminDocSnap.exists()) {
+              isDocAdmin = true;
+            }
+          } catch {}
 
           const userIsAdmin = hasAdminClaim || isBootstrapEmail || isDocAdmin;
           setIsAdmin(userIsAdmin);
 
-          // If bootstrap admin, ensure records exist & trigger server-side claim sync
+          // Bootstrap admin sync
           if (isBootstrapEmail) {
             try {
               if (!isDocAdmin) {
-                await setDoc(doc(db, 'admins', firebaseUser.uid), {
+                setDoc(doc(db, 'admins', firebaseUser.uid), {
                   uid: firebaseUser.uid,
                   email: firebaseUser.email,
                   role: 'super_admin',
                   assignedAt: Date.now()
-                }, { merge: true });
+                }, { merge: true }).catch(() => {});
               }
 
-              // Trigger server-side claim assignment via /api/admin/verify and force token refresh
               if (!hasAdminClaim) {
-                const currentToken = await firebaseUser.getIdToken();
-                await fetch('/api/admin/verify', {
-                  headers: { 'Authorization': `Bearer ${currentToken}` }
-                }).catch(() => {});
-                // Force token refresh to capture the newly set server custom claim
-                await firebaseUser.getIdToken(true).catch(() => {});
-                const freshResult = await firebaseUser.getIdTokenResult(true).catch(() => null);
-                if (freshResult?.claims?.admin === true) {
-                  setIsAdmin(true);
+                const currentToken = await firebaseUser.getIdToken().catch(() => null);
+                if (currentToken) {
+                  fetch('/api/admin/verify', {
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                  }).catch(() => {});
                 }
               }
             } catch (e) {
@@ -122,19 +184,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
           }
 
-          // Ensure top-level user doc exists and update login metadata
+          // Top-level user record
           const userRef = doc(db, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
-          const userData = userSnap.data();
+          const userSnap = await withTimeout(getDoc(userRef), 2500, null);
+          const userData = userSnap && userSnap.exists() ? userSnap.data() : null;
 
-          // Check if user is disabled by administrator
           if (userData?.status === 'DISABLED' && !userIsAdmin) {
             console.warn('Account disabled by administrator. Signing out user.');
             await firebaseSignOut(auth);
             setUser(null);
             setIsAdmin(false);
-            setLoading(false);
-            setLoadingProfile(false);
+            setProfile(null);
+            setDashboards([]);
+            setActiveDashboard(null);
             return;
           }
 
@@ -152,19 +214,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             updatedAt: Date.now()
           };
 
-          await setDoc(userRef, userMetadata, { merge: true });
+          setDoc(userRef, userMetadata, { merge: true }).catch(() => {});
 
-          // Load or initialize user profile document under users/{uid}/profile/info
+          // Profile sync
           const profileRef = doc(db, 'users', firebaseUser.uid, 'profile', 'info');
-          const profileSnap = await getDoc(profileRef);
+          const profileSnap = await withTimeout(getDoc(profileRef), 2500, null);
 
-          if (profileSnap.exists()) {
-            const loadedProfile = profileSnap.data() as UserProfile;
-            setProfile(loadedProfile);
+          if (profileSnap && profileSnap.exists()) {
+            setProfile(profileSnap.data() as UserProfile);
           } else {
-            // Check if this is an existing user who already had data/name
             const hasExistingInfo = Boolean(userData?.name && userData.name !== 'Trader');
-            const initialProfile: UserProfile = {
+            const newProfile: UserProfile = {
               uid: firebaseUser.uid,
               fullName: firebaseUser.displayName || userData?.name || 'Trader',
               email: firebaseUser.email || '',
@@ -179,35 +239,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               createdAt: Date.now(),
               updatedAt: Date.now()
             };
-
-            await setDoc(profileRef, cleanUndefined(initialProfile));
-            setProfile(initialProfile);
+            setDoc(profileRef, cleanUndefined(newProfile), { merge: true }).catch(() => {});
+            setProfile(newProfile);
           }
 
-          // Load dashboards
+          // Dashboards sync
           const dashRef = collection(db, 'users', firebaseUser.uid, 'dashboards');
           const q = query(dashRef, orderBy('createdAt', 'asc'));
-          const snap = await getDocs(q);
-          const seen = new Set<string>();
-          const loadedDashboards = snap.docs
-            .map(d => ({ id: d.id, ...d.data() } as Dashboard))
-            .filter(d => {
-              if (!d?.id || seen.has(d.id)) return false;
-              seen.add(d.id);
-              return true;
-            });
-          
-          setDashboards(loadedDashboards);
+          const snap = await withTimeout(getDocs(q), 3000, null);
 
-          if (loadedDashboards.length > 0) {
-            // Check localstorage for last active dashboard
-            const lastActiveId = localStorage.getItem('tradevault_last_dashboard');
-            const lastActive = loadedDashboards.find(d => d.id === lastActiveId);
-            setActiveDashboard(lastActive || loadedDashboards[0]);
+          if (snap && !snap.empty) {
+            const seen = new Set<string>();
+            const loadedDashboards = snap.docs
+              .map(d => ({ id: d.id, ...d.data() } as Dashboard))
+              .filter(d => {
+                if (!d?.id || seen.has(d.id)) return false;
+                seen.add(d.id);
+                return true;
+              });
+
+            if (loadedDashboards.length > 0) {
+              setDashboards(loadedDashboards);
+              const lastActiveId = localStorage.getItem('tradevault_last_dashboard');
+              const lastActive = loadedDashboards.find(d => d.id === lastActiveId);
+              setActiveDashboard(lastActive || loadedDashboards[0]);
+            }
           } else {
-            // Create default dashboard
             const newDashRef = doc(collection(db, 'users', firebaseUser.uid, 'dashboards'));
-            const defaultDash: Dashboard = {
+            const freshDash: Dashboard = {
               id: newDashRef.id,
               name: 'My Trading Journal',
               currency: 'USD',
@@ -215,50 +274,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               createdAt: Date.now(),
               updatedAt: Date.now()
             };
-            await setDoc(newDashRef, defaultDash);
-            setDashboards([defaultDash]);
-            setActiveDashboard(defaultDash);
+            setDoc(newDashRef, freshDash).catch(() => {});
+            setDashboards([freshDash]);
+            setActiveDashboard(freshDash);
+            localStorage.setItem('tradevault_last_dashboard', freshDash.id);
           }
         } catch (error) {
-          console.warn('Firestore initial data fetch encountered connection issue; initializing fallback profile:', error);
-          // Fallback profile if offline/unavailable so UI remains responsive
-          setProfile((prev) => prev || {
-            uid: firebaseUser.uid,
-            fullName: firebaseUser.displayName || 'Trader',
-            email: firebaseUser.email || '',
-            tradingStyle: 'Day Trading',
-            tradingExperience: '',
-            preferredMarkets: '',
-            preferredTradingSession: '',
-            defaultAccountType: 'Personal Live',
-            bio: '',
-            avatarUrl: firebaseUser.photoURL || '',
-            onboardingCompleted: true,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          });
-          const fallbackDash: Dashboard = {
-            id: 'default-dash',
-            name: 'My Trading Journal',
-            currency: 'USD',
-            startingBalance: 10000,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          };
-          setDashboards((prev) => prev.length > 0 ? prev : [fallbackDash]);
-          setActiveDashboard((prev) => prev || fallbackDash);
+          console.warn('Background profile sync notice:', error);
         } finally {
           setLoadingProfile(false);
         }
-      } else {
-        setProfile(null);
-        setDashboards([]);
-        setActiveDashboard(null);
-      }
-      setLoading(false);
+      })();
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -467,6 +499,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await deleteUser(user);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 selection:bg-blue-600 selection:text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center animate-pulse">
+            <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <div className="text-center">
+            <h2 className="text-lg font-bold tracking-tight text-white font-sans">TradeVault</h2>
+            <p className="text-xs text-slate-400 mt-1">Initializing trading environment...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -485,7 +533,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logout,
       deleteAccount
     }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

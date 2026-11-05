@@ -4,7 +4,7 @@ import {
   NewsProviderResult, 
   StoredNewsCache 
 } from '@/types/normalizedNews';
-import { getArticlesForDate, fetchLiveAggregatedNews } from './liveNewsAggregator';
+import { getArticlesForDate, fetchLiveAggregatedNews, detectArticleImpact } from './liveNewsAggregator';
 
 export interface INewsProvider {
   name: string;
@@ -162,16 +162,6 @@ export class NewsProviderService {
     const todayDateStr = new Date().toISOString().split('T')[0];
     const isFuture = params.date > todayDateStr;
 
-    if (isFuture) {
-      return {
-        articles: [],
-        source: 'None',
-        isLive: true,
-        fetchedAt: new Date().toISOString(),
-        isFutureDate: true
-      };
-    }
-
     // 1. Check cache if not forcing refresh
     if (!forceRefresh) {
       const cached = this.cacheProvider.getCache(params.date);
@@ -279,7 +269,18 @@ export class NewsProviderService {
       };
     }
 
-    // 6. No provider available and no cache -> Throw/return honest unavailable result
+    // 6. If future date has no scheduled articles, return clean future date result
+    if (isFuture) {
+      return {
+        articles: [],
+        source: 'None',
+        isLive: true,
+        fetchedAt: new Date().toISOString(),
+        isFutureDate: true
+      };
+    }
+
+    // No provider available and no cache -> Throw/return honest unavailable result
     throw new Error('Live news is currently unavailable.');
   }
 
@@ -298,6 +299,14 @@ export class NewsProviderService {
       result = result.filter(a => 
         a.relatedMarkets?.some(m => m.toUpperCase() === targetMarket)
       );
+    }
+
+    // Filter by impact level: 'HIGH' | 'MEDIUM' | 'LOW'
+    if (params.impact && params.impact !== 'ALL') {
+      result = result.filter(a => {
+        const itemImpact = a.impact || detectArticleImpact(a.headline, a.summary, a.category);
+        return itemImpact === params.impact;
+      });
     }
 
     // Search query
@@ -335,7 +344,8 @@ export class NewsProviderService {
       seenIds.add(finalId);
       return {
         ...a,
-        id: finalId
+        id: finalId,
+        impact: a.impact || detectArticleImpact(a.headline, a.summary, a.category)
       };
     });
 

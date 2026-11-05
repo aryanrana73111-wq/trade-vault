@@ -29,7 +29,7 @@ interface DataContextType {
   deleteAllTradeData: () => Promise<void>;
 }
 
-const DataContext = createContext<DataContextType | null>(null);
+export const DataContext = createContext<DataContextType | null>(null);
 
 export const useData = () => {
   const context = useContext(DataContext);

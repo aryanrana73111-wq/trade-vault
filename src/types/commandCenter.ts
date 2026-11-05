@@ -17,15 +17,35 @@ export interface CommandCenterSummary {
   };
   averageR: number | null;
   averageRFormatted: string;
+  winRate: number | null;
+  profitFactor: number | null;
+  currentEquity: number;
+  currentDrawdown: number;
   ruleAdherence: number | null;
   ruleAdherenceFormatted: string;
   psychologyCompletion: number | null;
   psychologyCompletionFormatted: string;
+  executionQualityScore: number;
   totalTradesInRange: number;
   closedTradesInRange: number;
 }
 
-export type AttentionSeverity = 'critical' | 'warning' | 'notice';
+export interface TraderHealthScore {
+  overallScore: number; // 0-100
+  level: string; // e.g. "Disciplined Practitioner", "Developing", "Elite Executor"
+  components: {
+    riskDiscipline: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+    executionQuality: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+    ruleAdherence: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+    psychologyCompletion: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+    processConsistency: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+    journalQuality: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+    strategyDiscipline: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+    learningProgress: { score: number; max: number; note: string; calculation: string; tradesCount: number };
+  };
+}
+
+export type AttentionSeverity = 'critical' | 'warning' | 'notice' | 'positive';
 
 export type AttentionCategory = 
   | 'risk' 
@@ -34,7 +54,8 @@ export type AttentionCategory =
   | 'rules' 
   | 'behavior' 
   | 'data_quality'
-  | 'performance';
+  | 'performance'
+  | 'execution';
 
 export interface AttentionItem {
   id: string;
@@ -54,19 +75,200 @@ export interface AttentionItem {
     baselineValue: string;
   };
   investigateAction: {
-    type: 'trades' | 'psychology' | 'strategy' | 'rules' | 'learning' | 'ai_labs';
+    type: 'trades' | 'psychology' | 'strategy' | 'rules' | 'learning' | 'ai_labs' | 'risk';
     targetId?: string;
     route?: string;
     label: string;
   };
 }
 
-export type StateTrend = 'elevated' | 'normal' | 'reduced' | 'improved' | 'declined' | 'stable';
+export interface ProcessActionItem {
+  id: string;
+  title: string;
+  reason: string;
+  priority: 'high' | 'medium' | 'low';
+  category: 'review' | 'journal' | 'rule' | 'experiment' | 'psychology' | 'risk';
+  route: string;
+  buttonLabel: string;
+  supportingTradeIds?: string[];
+}
 
-export interface CurrentTradingStateMetric {
+export interface TodayTradingPlan {
+  todayFocus: string;
+  riskLimitPercent: number;
+  maxTrades: number;
+  preferredSessions: string[];
+  preferredStrategies: string[];
+  rulesToRemember: string[];
+  psychologyReminder: string;
+  learningObjective: string;
+  postTradeRequirement: string;
+  updatedAt: number;
+}
+
+export interface PreTradeCheckItem {
+  id: string;
+  label: string;
+  checked: boolean;
+  category: 'setup' | 'risk' | 'execution' | 'psychology';
+}
+
+export interface ExecutionQualityReport {
+  score: number; // 0-100
+  status: 'Good' | 'Needs Review' | 'Insufficient Data';
+  entryDiscipline: { score: number; note: string };
+  stopLossDiscipline: { score: number; note: string };
+  takeProfitDiscipline: { score: number; note: string };
+  riskCompliance: { score: number; note: string };
+  postTradeDiscipline: { score: number; note: string };
+  evidenceTrades: Trade[];
+}
+
+export interface TradeAnalysisInsight {
+  tradeId: string;
+  trade: Trade;
+  whatWentWell: string[];
+  whatCouldImprove: string[];
+  whatToInvestigate: string[];
+  nextAction: string;
+}
+
+export interface BehavioralPattern {
+  id: string;
+  name: string;
+  type: 'FOMO' | 'REVENGE' | 'OVERTRADING' | 'RISK_ESCALATION' | 'EARLY_EXIT' | 'DISCIPLINE_PEAK';
+  confidence: 'Low' | 'Medium' | 'High';
+  detected: boolean;
+  occurrenceCount: number;
+  evidenceNotes: string;
+  supportingTradeIds: string[];
+}
+
+export interface PlannedVsActualRiskItem {
+  tradeId: string;
+  market: string;
+  direction: string;
+  date: number;
+  plannedRiskPercent: number;
+  actualRiskPercent: number;
+  plannedRiskDollar: number;
+  actualRiskDollar: number;
+  deviationPercent: number;
+  isCompliant: boolean;
+  result: string;
+  pnl: number;
+}
+
+export interface DrawdownProfileMetrics {
+  currentDrawdownDollar: number;
+  currentDrawdownPercent: number;
+  maxHistoricalDrawdownDollar: number;
+  maxHistoricalDrawdownPercent: number;
+  avgDrawdownDollar: number;
+  longestRecoveryTrades: number;
+  longestRecoveryDays: number;
+  recoveryEfficiencyRate: number; // 0-100%
+  underwaterCurve: Array<{ date: number; equity: number; drawdown: number; tradeIndex: number }>;
+}
+
+export interface MistakeCluster {
+  category: string;
+  occurrences: number;
+  totalPnlImpact: number;
+  avgLossPerOccurrence: number;
+  tradeIds: string[];
+}
+
+export interface PersonalLeak {
+  id: string;
+  title: string;
+  category: 'Risk' | 'Entry' | 'Exit' | 'Psychology' | 'Rules' | 'Overtrading' | 'Strategy' | 'Journal';
+  frequency: number;
+  estimatedHistoricalImpact: number;
+  sampleSize: number;
+  supportingTradeIds: string[];
+  actionRecommendation: string;
+}
+
+export interface PersonalStrength {
+  id: string;
+  title: string;
+  category: 'Risk' | 'Discipline' | 'Journal' | 'Execution' | 'Strategy';
+  adherenceRate: number;
+  sampleSize: number;
+  positivePnlAttribution: number;
+  supportingTradeIds: string[];
+}
+
+export interface ThirtyDayImprovementPlan {
+  week1Observation: { task: string; done: boolean }[];
+  week2Correction: { task: string; done: boolean }[];
+  week3Experiment: { task: string; done: boolean }[];
+  week4Review: { task: string; done: boolean }[];
+  lastSavedAt: number;
+}
+
+export interface TraderSkillNode {
+  id: string;
+  name: string;
+  tier: 'Beginner' | 'Foundation' | 'Risk' | 'Execution' | 'Strategy' | 'Psychology' | 'Quant' | 'Professional';
+  unlocked: boolean;
+  progressPercent: number;
+  requirements: string[];
+  competencies: string[];
+  academyRoute: string;
+}
+
+export interface TradingExperiment {
+  id: string;
+  hypothesis: string;
+  variable: string;
+  baselineMetric: string;
+  targetSampleSize: number;
+  currentSampleSize: number;
+  startDate: string;
+  endDate?: string;
+  status: 'In Progress' | 'Completed' | 'Draft';
+  conclusion?: string;
+}
+
+export interface HypothesisItem {
+  id: string;
+  statement: string;
+  evidenceFor: string[];
+  evidenceAgainst: string[];
+  sampleSize: number;
+  status: 'Insufficient Data' | 'Early Evidence' | 'Preliminary' | 'Stronger Historical Evidence';
+}
+
+export interface WhatIfSimulationResult {
+  scenarioName: string;
+  originalNetPnl: number;
+  simulatedNetPnl: number;
+  deltaNetPnl: number;
+  originalWinRate: number;
+  simulatedWinRate: number;
+  originalAvgR: number;
+  simulatedAvgR: number;
+  excludedTradesCount: number;
+  assumptions: string;
+}
+
+export interface TraderLevelInfo {
+  level: number;
+  title: string;
+  nextLevelTitle: string;
+  currentXp: number;
+  xpToNextLevel: number;
+  progressPercent: number;
+  milestonesUnlocked: number;
+  competenciesDemonstrated: string[];
+}
+
+export interface StateTrendMetric {
   key: string;
   label: string;
-  state: StateTrend;
+  state: 'elevated' | 'normal' | 'reduced' | 'improved' | 'declined' | 'stable';
   badgeText: string;
   badgeVariant: 'warning' | 'info' | 'success' | 'neutral' | 'danger';
   currentValueFormatted: string;
@@ -80,15 +282,15 @@ export interface CurrentTradingState {
   windowSize: number;
   recentTradesCount: number;
   previousTradesCount: number;
-  metrics: CurrentTradingStateMetric[];
+  metrics: StateTrendMetric[];
   recentTradeIds: string[];
   previousTradeIds: string[];
 }
 
-export type PinnedItemType = 'trade' | 'strategy' | 'learning' | 'rule' | 'hypothesis' | 'ai_insight';
+export type PinnedItemType = 'trade' | 'strategy' | 'learning' | 'rule' | 'hypothesis' | 'ai_insight' | 'leak';
 
 export interface PinnedItem {
-  id: string; // unique pin id
+  id: string;
   recordId: string;
   type: PinnedItemType;
   title: string;
@@ -141,13 +343,21 @@ export interface InvestigationResult {
 export interface CommandCenterLayoutConfig {
   visibleWidgets: {
     topSummary: boolean;
+    cockpitSummary: boolean;
+    statusHeader: boolean;
     attentionPanel: boolean;
-    macroIntelligence?: boolean;
-    tradingState: boolean;
-    quickInvestigation: boolean;
-    pinnedItems: boolean;
+    todayPlan: boolean;
+    tradeIntelligence: boolean;
+    psychologyCenter: boolean;
+    riskControl: boolean;
+    strategyCenter: boolean;
+    learningRules: boolean;
+    growthCenter: boolean;
+    experimentLab: boolean;
+    aiAnalyst: boolean;
+    operatingSystemBoard: boolean;
     recentActivity: boolean;
-    connectedWorkflow: boolean;
+    pinnedItems: boolean;
   };
   widgetOrder: string[];
   visibleMetrics: {
@@ -156,9 +366,12 @@ export interface CommandCenterLayoutConfig {
     riskUsedToday: boolean;
     currentStreak: boolean;
     averageR: boolean;
+    winRate: boolean;
+    profitFactor: boolean;
     ruleAdherence: boolean;
     psychologyCompletion: boolean;
+    healthScore: boolean;
   };
-  recentWindowSize: ComparisonWindowSize;
+  recentWindowSize: 5 | 10 | 20;
   timeRange: CommandCenterTimeRange;
 }

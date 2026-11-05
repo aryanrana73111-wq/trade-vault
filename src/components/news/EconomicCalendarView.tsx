@@ -613,7 +613,7 @@ export function EconomicCalendarView({
       {/* Toast Feedback Notification */}
       {toastMessage && (
         <div 
-          className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-slate-900 text-white dark:bg-blue-600 shadow-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 animate-in slide-in-from-bottom-2"
+          className="fixed bottom-24 md:bottom-6 right-4 sm:right-6 mb-[env(safe-area-inset-bottom,0px)] z-50 px-4 py-2.5 rounded-xl bg-slate-900 text-white dark:bg-blue-600 shadow-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 animate-in slide-in-from-bottom-2 max-w-[calc(100vw-2rem)]"
           role="status"
         >
           <Check className="w-4 h-4 text-emerald-400 dark:text-white" />

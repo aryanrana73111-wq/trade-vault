@@ -4,6 +4,8 @@
  * supporting broker detection, search, and manual custom server entry.
  */
 
+import { BrokerCapabilities } from '@/types/mt5';
+
 export interface MT5BrokerEntry {
   id: string;
   name: string;
@@ -12,8 +14,7 @@ export interface MT5BrokerEntry {
   category: 'prop' | 'broker';
   supportedCurrencies: string[];
   supportedLeverages: number[];
-  instantDemoAvailable: boolean;
-  liveAccountUrl: string;
+  capabilities: BrokerCapabilities;
   servers: {
     name: string;
     type: 'live' | 'demo';
@@ -30,8 +31,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'prop',
     supportedCurrencies: ['USD', 'EUR', 'GBP'],
     supportedLeverages: [30, 50, 100],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://sharkfunded.com/challenges',
+    capabilities: {
+      brokerId: 'sharkfunded',
+      brokerName: 'Shark Funded',
+      category: 'prop',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://sharkfunded.com',
+      demoRegistrationUrl: 'https://sharkfunded.com/challenges',
+      liveRegistrationUrl: 'https://sharkfunded.com/challenges',
+      notes: 'Shark Funded is a proprietary trading firm. Prop evaluations and funded accounts must be acquired directly through their official portal.'
+    },
     servers: [
       { name: 'SharkFunded-Live', type: 'live', description: 'Funded & Evaluation MT5 Live' },
       { name: 'SharkFunded-Live 2', type: 'live', description: 'Funded Trader Live 2' },
@@ -46,8 +59,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR', 'GBP', 'AUD'],
     supportedLeverages: [30, 100, 200, 500],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://www.icmarkets.com/open-trading-account',
+    capabilities: {
+      brokerId: 'icmarkets',
+      brokerName: 'IC Markets',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: true,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: true,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://www.icmarkets.com',
+      demoRegistrationUrl: 'https://www.icmarkets.com/open-trading-account',
+      liveRegistrationUrl: 'https://www.icmarkets.com/open-trading-account',
+      notes: 'Demo accounts provisioned via provider gateway where supported. Live accounts require KYC through IC Markets portal.'
+    },
     servers: [
       { name: 'ICMarketsSC-Live01', type: 'live', description: 'Raw Spread / Standard Live' },
       { name: 'ICMarketsSC-Live02', type: 'live', description: 'Live Server 02' },
@@ -64,8 +89,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'prop',
     supportedCurrencies: ['USD', 'EUR', 'GBP', 'CZK'],
     supportedLeverages: [30, 100],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://ftmo.com/en/#get-evaluation',
+    capabilities: {
+      brokerId: 'ftmo',
+      brokerName: 'FTMO',
+      category: 'prop',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://ftmo.com',
+      demoRegistrationUrl: 'https://ftmo.com/en/#get-evaluation',
+      liveRegistrationUrl: 'https://ftmo.com/en/#get-evaluation',
+      notes: 'FTMO is a proprietary trading firm. Free trials and challenge evaluations must be registered on the official FTMO platform.'
+    },
     servers: [
       { name: 'FTMO-Server', type: 'live', description: 'Funded & Verification Server' },
       { name: 'FTMO-Server2', type: 'live', description: 'FTMO Live 2' },
@@ -80,8 +117,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR', 'GBP', 'JPY'],
     supportedLeverages: [100, 200, 500, 1000],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://www.exness.com/register',
+    capabilities: {
+      brokerId: 'exness',
+      brokerName: 'Exness',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: true,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: true,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://www.exness.com',
+      demoRegistrationUrl: 'https://www.exness.com/register',
+      liveRegistrationUrl: 'https://www.exness.com/register',
+      notes: 'Demo accounts provisioned via provider gateway where supported. Live accounts require KYC approval.'
+    },
     servers: [
       { name: 'Exness-MT5Real', type: 'live', description: 'Standard / Pro Real' },
       { name: 'Exness-MT5Real2', type: 'live', description: 'Real Server 2' },
@@ -97,8 +146,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR', 'GBP', 'AUD'],
     supportedLeverages: [30, 100, 200, 400],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://pepperstone.com/open-trading-account',
+    capabilities: {
+      brokerId: 'pepperstone',
+      brokerName: 'Pepperstone',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: true,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: true,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://pepperstone.com',
+      demoRegistrationUrl: 'https://pepperstone.com/open-trading-account',
+      liveRegistrationUrl: 'https://pepperstone.com/open-trading-account',
+      notes: 'Demo creation available via provider gateway. Live accounts require Pepperstone application and KYC.'
+    },
     servers: [
       { name: 'Pepperstone-Live01', type: 'live', description: 'Razor / Standard Live' },
       { name: 'Pepperstone-Live02', type: 'live', description: 'Live Server 02' },
@@ -113,8 +174,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'prop',
     supportedCurrencies: ['USD', 'EUR', 'GBP'],
     supportedLeverages: [50, 100],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://fundingpips.com',
+    capabilities: {
+      brokerId: 'fundingpips',
+      brokerName: 'Funding Pips',
+      category: 'prop',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://fundingpips.com',
+      demoRegistrationUrl: 'https://fundingpips.com',
+      liveRegistrationUrl: 'https://fundingpips.com',
+      notes: 'Funding Pips is a prop firm. Challenges must be purchased on their official platform.'
+    },
     servers: [
       { name: 'FundingPips-Server', type: 'live', description: 'Funded & Evaluation MT5' },
       { name: 'FundingPips-Demo', type: 'demo', description: 'Practice Demo' }
@@ -128,8 +201,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR', 'GBP', 'AUD'],
     supportedLeverages: [30, 100, 500],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://www.eightcap.com',
+    capabilities: {
+      brokerId: 'eightcap',
+      brokerName: 'Eightcap',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://www.eightcap.com',
+      demoRegistrationUrl: 'https://www.eightcap.com',
+      liveRegistrationUrl: 'https://www.eightcap.com',
+      notes: 'Demo and live accounts must be opened directly on the Eightcap website.'
+    },
     servers: [
       { name: 'Eightcap-Real', type: 'live', description: 'Standard / Raw Real' },
       { name: 'Eightcap-Real2', type: 'live', description: 'Real Server 2' },
@@ -144,8 +229,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR', 'GBP'],
     supportedLeverages: [100, 500],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://www.vantagemarkets.com',
+    capabilities: {
+      brokerId: 'vantage',
+      brokerName: 'Vantage Markets',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://www.vantagemarkets.com',
+      demoRegistrationUrl: 'https://www.vantagemarkets.com',
+      liveRegistrationUrl: 'https://www.vantagemarkets.com',
+      notes: 'Demo and live accounts must be opened directly on the Vantage Markets website.'
+    },
     servers: [
       { name: 'VantageInternational-Live', type: 'live', description: 'Live Trading Server' },
       { name: 'VantageInternational-Live 2', type: 'live', description: 'Live Server 2' },
@@ -160,8 +257,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR', 'GBP'],
     supportedLeverages: [100, 200, 500],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://www.xm.com',
+    capabilities: {
+      brokerId: 'xm',
+      brokerName: 'XM Group',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://www.xm.com',
+      demoRegistrationUrl: 'https://www.xm.com',
+      liveRegistrationUrl: 'https://www.xm.com',
+      notes: 'Demo and live accounts must be opened directly on the XM website.'
+    },
     servers: [
       { name: 'XMGlobal-MT5', type: 'live', description: 'Live Server' },
       { name: 'XMGlobal-MT5 2', type: 'live', description: 'Live Server 2' },
@@ -176,8 +285,20 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR'],
     supportedLeverages: [100, 500, 1000],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://deriv.com',
+    capabilities: {
+      brokerId: 'deriv',
+      brokerName: 'Deriv',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://deriv.com',
+      demoRegistrationUrl: 'https://deriv.com',
+      liveRegistrationUrl: 'https://deriv.com',
+      notes: 'Demo and live accounts must be opened directly on Deriv platform.'
+    },
     servers: [
       { name: 'Deriv-Server', type: 'live', description: 'Synthetics & Financials Live' },
       { name: 'Deriv-Server-02', type: 'live', description: 'Live Server 02' },
@@ -192,14 +313,71 @@ export const MT5_POPULAR_BROKERS: MT5BrokerEntry[] = [
     category: 'broker',
     supportedCurrencies: ['USD', 'EUR', 'GBP'],
     supportedLeverages: [100, 500],
-    instantDemoAvailable: true,
-    liveAccountUrl: 'https://blackbull.com',
+    capabilities: {
+      brokerId: 'blackbull',
+      brokerName: 'BlackBull Markets',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: 1727500000000,
+      officialWebsiteUrl: 'https://blackbull.com',
+      demoRegistrationUrl: 'https://blackbull.com',
+      liveRegistrationUrl: 'https://blackbull.com',
+      notes: 'Demo and live accounts must be opened directly on the BlackBull website.'
+    },
     servers: [
       { name: 'BlackBullMarkets-Live', type: 'live', description: 'Prime / Standard Live' },
       { name: 'BlackBullMarkets-Demo', type: 'demo', description: 'Demo Server' }
     ]
   }
 ];
+
+/**
+ * Returns explicit capabilities for a broker ID or server name.
+ * If not recognized or unverified, demo creation is marked FALSE.
+ */
+export function getBrokerCapabilities(brokerIdOrServer: string): BrokerCapabilities {
+  if (!brokerIdOrServer || !brokerIdOrServer.trim()) {
+    return {
+      brokerId: 'unknown',
+      brokerName: 'MetaTrader 5 Broker',
+      category: 'broker',
+      mt5ConnectSupported: true,
+      demoCreationSupported: false,
+      liveCreationSupported: false,
+      requiresProvisioningProfile: false,
+      verifiedAt: Date.now(),
+      officialWebsiteUrl: '',
+      notes: 'Custom MT5 server. Please register credentials with your broker, then connect in TradeVault.'
+    };
+  }
+
+  const clean = brokerIdOrServer.trim().toLowerCase();
+  const found = MT5_POPULAR_BROKERS.find(b => 
+    b.id === clean || 
+    b.name.toLowerCase() === clean || 
+    b.servers.some(s => s.name.toLowerCase() === clean)
+  );
+
+  if (found) {
+    return found.capabilities;
+  }
+
+  return {
+    brokerId: clean.replace(/[^a-z0-9]/g, '_'),
+    brokerName: brokerIdOrServer,
+    category: 'broker',
+    mt5ConnectSupported: true,
+    demoCreationSupported: false,
+    liveCreationSupported: false,
+    requiresProvisioningProfile: false,
+    verifiedAt: Date.now(),
+    officialWebsiteUrl: '',
+    notes: 'Demo creation is not available for this broker through TradeVault. Open an account on the official broker website.'
+  };
+}
 
 /**
  * Intelligently detect broker name, company, and connection type (live vs demo)

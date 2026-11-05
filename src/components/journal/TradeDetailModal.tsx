@@ -27,13 +27,16 @@ import {
   Globe2,
   Flame,
   Link2,
-  Info
+  Info,
+  Zap,
+  Camera
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { NEWS_EVENTS } from '@/data/newsIntelligenceData';
 import { EventDetailModal } from '@/components/news/EventDetailModal';
 import { calculateSurprise } from '@/lib/news/newsStore';
 import { NewsEvent } from '@/types/newsIntelligence';
+import { MT5ScreenshotDetailCard } from './MT5ScreenshotDetailCard';
 
 interface TradeDetailModalProps {
   trade: Trade;
@@ -52,6 +55,12 @@ export function TradeDetailModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [inspectEvent, setInspectEvent] = useState<NewsEvent | null>(null);
+
+  const hasMT5Screenshot = Boolean(
+    trade?.mt5ScreenshotUrl || 
+    (trade?.tradeSource === 'mt5_screenshot' && trade?.screenshot) || 
+    trade?.mt5ScreenshotMetadata
+  );
 
   // Inline editing state for simple fields: Notes, Mistake, Learning
   const [editingField, setEditingField] = useState<'notes' | 'mistake' | 'learning' | null>(null);
@@ -180,9 +189,12 @@ export function TradeDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 pb-[max(env(safe-area-inset-bottom,8px),8px)] animate-in fade-in duration-150">
       <div 
-        className="relative w-full max-w-3xl glass-modal rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+        className={cn(
+          "relative w-full glass-modal rounded-3xl shadow-2xl flex flex-col max-h-[calc(100dvh-2rem)] my-auto overflow-hidden transition-all duration-200",
+          hasMT5Screenshot ? "max-w-5xl" : "max-w-3xl"
+        )}
         role="dialog"
         aria-modal="true"
       >
@@ -199,9 +211,21 @@ export function TradeDetailModal({
               <span>{trade.direction}</span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{trade.market}</h2>
                 <span className="text-xs text-slate-400 font-mono">#{trade.id.slice(0, 8)}</span>
+                {trade.tradeSource === 'mt5' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center gap-1">
+                    <Zap className="w-3 h-3" />
+                    MT5 Auto Sync {trade.broker ? `(${trade.broker})` : ''}
+                  </span>
+                )}
+                {(trade.tradeSource === 'mt5_screenshot' || trade.mt5ScreenshotUrl) && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                    <Camera className="w-3 h-3" />
+                    MT5 Screenshot {trade.rawSymbol ? `(${trade.rawSymbol})` : ''}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
                 <span className="flex items-center gap-1">
@@ -274,8 +298,11 @@ export function TradeDetailModal({
           )}
         </div>
 
-        {/* Scrollable Body with the 9 Structured Sections */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5 text-sm">
+        {/* Scrollable Body with Structured Sections & Responsive MT5 Layout */}
+        <div className="flex-1 overflow-y-auto p-6 text-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Trade Details */}
+            <div className={cn("space-y-5", hasMT5Screenshot ? "lg:col-span-7" : "lg:col-span-12")}>
           
           {/* 1. TRADE SUMMARY */}
           <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 bg-white/70 dark:bg-slate-850/60 backdrop-blur-md shadow-xs">
@@ -351,6 +378,36 @@ export function TradeDetailModal({
                 </span>
               </div>
             </div>
+
+            {/* MT5 Execution Details Sub-card */}
+            {(trade.tradeSource === 'mt5' || trade.mt5TicketId) && (
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 dark:bg-slate-850/60 p-3 rounded-lg">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block">MT5 Ticket #</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {trade.mt5TicketId || trade.externalTradeId || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Broker / Server</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200 truncate block">
+                    {trade.brokerServer || trade.broker || 'MetaTrader 5'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Commission / Fees</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
+                    ${trade.fees !== undefined ? trade.fees.toFixed(2) : (trade.commission !== undefined ? trade.commission.toFixed(2) : '0.00')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Execution Bridge</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Verified
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 3. RISK */}
@@ -577,76 +634,88 @@ export function TradeDetailModal({
             </div>
           </div>
 
-          {/* 5. SCREENSHOT (WITH ADD / REPLACE / DELETE POST-CREATION) */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-slate-400" />
-                  <span>5. Chart Screenshot</span>
-                </h3>
-              </div>
-              {renderStatusBadge(sections.screenshot)}
+          {/* 4c. MOBILE MT5 SCREENSHOT DISPLAY (Directly below Trade Details on mobile screens) */}
+          {hasMT5Screenshot && (
+            <div className="lg:hidden">
+              <MT5ScreenshotDetailCard 
+                trade={trade} 
+                onTradeUpdated={(updated) => onEditFullTrade && onEditFullTrade(updated)} 
+              />
             </div>
+          )}
 
-            <div className="mt-3">
-              {trade.screenshot ? (
-                <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950/10 dark:bg-slate-950">
-                  <img 
-                    src={trade.screenshot} 
-                    alt="Trade Chart" 
-                    className="w-full max-h-80 object-contain mx-auto"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute top-2 right-2 flex items-center gap-2">
-                    <label className="cursor-pointer px-3 py-1.5 text-xs font-semibold bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 rounded-lg shadow-md hover:bg-white transition-colors flex items-center gap-1">
-                      <UploadCloud className="w-3.5 h-3.5" />
-                      <span>Replace</span>
+          {/* 5. SCREENSHOT (WITH ADD / REPLACE / DELETE POST-CREATION) */}
+          {(!hasMT5Screenshot || (trade.screenshot && trade.screenshot !== trade.mt5ScreenshotUrl)) && (
+            <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-slate-400" />
+                    <span>5. Chart Screenshot</span>
+                  </h3>
+                </div>
+                {renderStatusBadge(sections.screenshot)}
+              </div>
+
+              <div className="mt-3">
+                {trade.screenshot ? (
+                  <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950/10 dark:bg-slate-950">
+                    <img 
+                      src={trade.screenshot} 
+                      alt="Trade Chart" 
+                      className="w-full max-h-80 object-contain mx-auto"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-2 right-2 flex items-center gap-2">
+                      <label className="cursor-pointer px-3 py-1.5 text-xs font-semibold bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 rounded-lg shadow-md hover:bg-white transition-colors flex items-center gap-1">
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        <span>Replace</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleScreenshotFile(file);
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleDeleteScreenshot}
+                        className="p-1.5 text-rose-600 bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-md hover:bg-rose-50 dark:hover:bg-rose-950"
+                        title="Delete screenshot"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center bg-slate-50/50 dark:bg-slate-800/30">
+                    <label className="cursor-pointer flex flex-col items-center">
+                      <UploadCloud className="w-8 h-8 text-blue-500 mb-2" />
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                        Add Chart Screenshot Later
+                      </span>
+                      <span className="text-[11px] text-slate-400 mt-0.5">
+                        Supports PNG, JPG, WEBP • Secure, client-compressed storage
+                      </span>
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/webp"
                         className="hidden"
+                        disabled={isUploadingScreenshot}
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) handleScreenshotFile(file);
                         }}
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={handleDeleteScreenshot}
-                      className="p-1.5 text-rose-600 bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-md hover:bg-rose-50 dark:hover:bg-rose-950"
-                      title="Delete screenshot"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center bg-slate-50/50 dark:bg-slate-800/30">
-                  <label className="cursor-pointer flex flex-col items-center">
-                    <UploadCloud className="w-8 h-8 text-blue-500 mb-2" />
-                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                      Add Chart Screenshot Later
-                    </span>
-                    <span className="text-[11px] text-slate-400 mt-0.5">
-                      Supports PNG, JPG, WEBP • Secure, client-compressed storage
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
-                      disabled={isUploadingScreenshot}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleScreenshotFile(file);
-                      }}
-                    />
-                  </label>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 6. PSYCHOLOGY */}
           <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 shadow-xs">
@@ -856,6 +925,18 @@ export function TradeDetailModal({
             </div>
           </div>
 
+            </div>
+
+            {/* Right Column: Desktop MT5 Screenshot beside trade details */}
+            {hasMT5Screenshot && (
+              <div className="hidden lg:block lg:col-span-5 space-y-5 sticky top-0 self-start">
+                <MT5ScreenshotDetailCard 
+                  trade={trade} 
+                  onTradeUpdated={(updated) => onEditFullTrade && onEditFullTrade(updated)} 
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer with Delete and Close */}

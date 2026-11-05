@@ -41,9 +41,10 @@ import {
   Trash2,
   Loader2,
   AlertCircle,
-  Lock
+  Lock,
+  Zap
 } from 'lucide-react';
-import { joinCompetition, endCompetition, deleteCompetition, overrideParticipantDisqualification } from '@/lib/arenaService';
+import { joinCompetition, endCompetition, deleteCompetition } from '@/lib/arenaService';
 import { Arena, CompetitionTrade, ArenaMember } from '@/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -1024,25 +1025,6 @@ function ArenaDashboard({
     setIsDeleteModalOpen(true);
   };
 
-  const [isReinstatingSelf, setIsReinstatingSelf] = useState(false);
-
-  const handleReinstateSelf = async () => {
-    if (!arena || !user) return;
-    setIsReinstatingSelf(true);
-    try {
-      await overrideParticipantDisqualification(
-        arena.id,
-        user.uid,
-        'Risk limit self-reinstatement',
-        { uid: user.uid, displayName: user.displayName }
-      );
-    } catch (err: any) {
-      console.error('Failed to reinstate account:', err);
-    } finally {
-      setIsReinstatingSelf(false);
-    }
-  };
-
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     setDeleteError(null);
@@ -1226,16 +1208,6 @@ function ArenaDashboard({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {(isOwner || userMember?.disqualifiedRuleName === 'Maximum Risk Per Trade' || userMember?.disqualificationReason?.includes('Maximum Risk Per Trade')) && (
-                <Button
-                  size="sm"
-                  onClick={handleReinstateSelf}
-                  disabled={isReinstatingSelf}
-                  className="text-xs bg-red-600 hover:bg-red-700 text-white font-medium shrink-0"
-                >
-                  {isReinstatingSelf ? 'Reinstating...' : 'Reinstate Trading Access'}
-                </Button>
-              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -1247,6 +1219,7 @@ function ArenaDashboard({
             </div>
           </div>
         )}
+
 
         {/* Podium Highlight Banner if completed */}
         {isCompleted && rankedMembers.length > 0 && (
@@ -2026,14 +1999,25 @@ function ArenaDashboard({
                       <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium text-[10px] flex-shrink-0">
                         {trade.session || 'Session'}
                       </span>
+                      {trade.tradeSource?.includes('mt5') && (
+                        <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 text-[10px] font-bold flex-shrink-0 flex items-center gap-0.5">
+                          <Zap className="w-2.5 h-2.5" /> MT5
+                        </span>
+                      )}
+                      {trade.hasViolation ? (
+                        <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-[10px] font-bold flex-shrink-0 flex items-center gap-0.5">
+                          <AlertTriangle className="w-2.5 h-2.5" /> Rule Breach
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 font-medium flex items-center gap-0.5 text-[10px] flex-shrink-0">
+                          <CheckCircle2 className="w-3 h-3" /> Verified
+                        </span>
+                      )}
                       {trade.isBackfilled && (
                         <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[10px] font-bold flex-shrink-0">
                           BF
                         </span>
                       )}
-                      <span className="text-emerald-600 font-medium flex items-center gap-0.5 text-[10px] flex-shrink-0">
-                        <CheckCircle2 className="w-3 h-3" /> Verified
-                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -2142,8 +2126,22 @@ function ArenaDashboard({
 
                       <td className="py-3 pr-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
+                          {trade.tradeSource?.includes('mt5') && (
+                            <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 text-[10px] font-bold flex items-center gap-0.5" title="Synchronized from MT5 bridge">
+                              <Zap className="w-2.5 h-2.5" /> MT5
+                            </span>
+                          )}
+                          {trade.hasViolation ? (
+                            <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-[10px] font-bold flex items-center gap-0.5" title={`Violated: ${trade.violationRuleName || 'Rule Breach'}`}>
+                              <AlertTriangle className="w-2.5 h-2.5" /> Breach
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                              <CheckCircle2 className="w-3 h-3" /> Verified
+                            </span>
+                          )}
                           {trade.isBackfilled && (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
+                            <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[10px] font-bold" title="Backfilled Trade">
                               BF
                             </span>
                           )}
@@ -2152,9 +2150,6 @@ function ArenaDashboard({
                               Flagged
                             </span>
                           )}
-                          <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
-                            <CheckCircle2 className="w-3 h-3" /> Verified
-                          </span>
                         </div>
                       </td>
 

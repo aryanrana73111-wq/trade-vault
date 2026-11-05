@@ -20,20 +20,26 @@ import { format } from 'date-fns';
 interface MT5OpenPositionsModalProps {
   account: ConnectedTradingAccount | null;
   onClose: () => void;
+  isOpen?: boolean;
 }
 
-export function MT5OpenPositionsModal({ account, onClose }: MT5OpenPositionsModalProps) {
+export function MT5OpenPositionsModal({ account, onClose, isOpen = true }: MT5OpenPositionsModalProps) {
   const [positions, setPositions] = useState<MT5OpenPosition[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (isOpen === false) return null;
 
   const fetchPositions = async () => {
     if (!account) return;
     setLoading(true);
+    setError(null);
     try {
-      const data = await mt5ClientService.getOpenPositions(account.id);
+      const data = await mt5ClientService.getOpenPositions(account.id, account.providerAccountId);
       setPositions(data);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Failed to fetch open positions:', err);
+      setError(err?.message || 'Failed to fetch live open positions from MT5 broker terminal.');
     } finally {
       setLoading(false);
     }
@@ -105,7 +111,23 @@ export function MT5OpenPositionsModal({ account, onClose }: MT5OpenPositionsModa
 
         {/* Positions List */}
         <div className="p-6 overflow-y-auto flex-1 space-y-3">
-          {loading ? (
+          {error ? (
+            <div className="py-8 px-6 text-center space-y-3 border border-rose-900/40 rounded-2xl bg-rose-950/20">
+              <AlertCircle className="w-8 h-8 text-rose-400 mx-auto" />
+              <h4 className="text-sm font-semibold text-rose-200">Unable to Fetch Positions</h4>
+              <p className="text-xs text-rose-300/80 max-w-md mx-auto">
+                {error}
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={fetchPositions}
+                className="mt-2 text-xs border-rose-800/60 hover:bg-rose-950/40 text-rose-200"
+              >
+                Retry
+              </Button>
+            </div>
+          ) : loading ? (
             <div className="py-12 text-center space-y-3">
               <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
               <p className="text-xs text-slate-400">Loading live positions from MT5...</p>
@@ -113,7 +135,7 @@ export function MT5OpenPositionsModal({ account, onClose }: MT5OpenPositionsModa
           ) : positions.length === 0 ? (
             <div className="py-12 text-center space-y-2 border border-dashed border-slate-800 rounded-2xl bg-slate-950/30">
               <Layers className="w-8 h-8 text-slate-600 mx-auto" />
-              <h4 className="text-sm font-semibold text-slate-200">No Open Positions</h4>
+              <h4 className="text-sm font-semibold text-slate-200">0 Open Positions</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
                 There are currently no active open trades on this MT5 account. All completed deals are stored in your journal.
               </p>

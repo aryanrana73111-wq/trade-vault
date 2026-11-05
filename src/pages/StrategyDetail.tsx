@@ -459,7 +459,7 @@ export default function StrategyDetail() {
                 <div>
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">Markets</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {strategy.markets.map(m => <span key={m} className="px-2 py-0.5 bg-slate-800/60 border border-white/[0.08] text-slate-300 text-xs rounded-md">{m}</span>)}
+                    {strategy.markets.map((m, idx) => <span key={`strat-det-mkt-${m}-${idx}`} className="px-2 py-0.5 bg-slate-800/60 border border-white/[0.08] text-slate-300 text-xs rounded-md">{m}</span>)}
                     {strategy.markets.length === 0 && <span className="text-sm text-slate-400 italic">Any</span>}
                   </div>
                 </div>

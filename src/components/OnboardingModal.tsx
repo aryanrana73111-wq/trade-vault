@@ -115,10 +115,10 @@ export function OnboardingModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-lg my-8 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto pb-[max(env(safe-area-inset-bottom,16px),16px)]">
+      <div className="relative w-full max-w-lg my-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)] animate-in fade-in zoom-in-95 duration-200">
         {/* Header decoration */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-6 text-white text-center">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-6 text-white text-center shrink-0">
           <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-inner">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
@@ -129,7 +129,7 @@ export function OnboardingModal() {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={(e) => handleSubmit(e, false)} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={(e) => handleSubmit(e, false)} className="p-4 sm:p-6 space-y-4 flex-1 overflow-y-auto overscroll-contain">
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
               <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />

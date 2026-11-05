@@ -549,7 +549,11 @@ export async function addCompetitionTrade(input: AddCompetitionTradeInput): Prom
     verificationStatus: isExisting && existingData?.verificationStatus ? existingData.verificationStatus : 'Manual',
     inPersonalJournal: addToPersonalJournal || (isExisting && existingData?.inPersonalJournal) || false,
     personalTradeId: addToPersonalJournal ? canonicalTradeId : (isExisting ? existingData?.personalTradeId : undefined),
-    editsCount: isExisting ? ((existingData?.editsCount || 0) + 1) : 0
+    editsCount: isExisting ? ((existingData?.editsCount || 0) + 1) : 0,
+    tradeSource: (trade as any).tradeSource || (isExisting ? existingData?.tradeSource : 'competition_manual'),
+    tradingAccountId: (trade as any).tradingAccountId || (isExisting ? existingData?.tradingAccountId : undefined),
+    mt5AccountId: (trade as any).mt5AccountId || (isExisting ? existingData?.mt5AccountId : undefined),
+    durationSeconds: (trade as any).durationSeconds || (isExisting ? existingData?.durationSeconds : undefined)
   };
 
   if (permissions.performance) {
@@ -683,21 +687,50 @@ export async function addCompetitionTrade(input: AddCompetitionTradeInput): Prom
     }
   });
 
+  // Determine if trade originates from automated MT5 synchronization
+  const isMT5Trade =
+    projection.tradeSource === 'mt5' ||
+    projection.tradeSource === 'competition_mt5' ||
+    (trade as any).tradeSource === 'mt5' ||
+    (trade as any).tradeSource === 'competition_mt5' ||
+    Boolean(projection.tradingAccountId || projection.mt5AccountId);
+
   // Evaluate all active competition rules against candidate trade
   const ruleEvaluation = evaluateCompetitionRules(arena, userId, allUserTrades, projection);
 
-  // 1. If candidate trade breaches a trade-level limit that rejects the candidate trade:
-  if (ruleEvaluation.firstTradeRejectionViolation) {
+  // 1. Pre-trade protection for MANUAL competition trades:
+  // If a manual trade breaches a trade-level limit (e.g. max risk %, max lot size, restricted symbol, trading outside session),
+  // reject the candidate trade before commitment so the participant can correct their parameters.
+  if (!isMT5Trade && ruleEvaluation.firstTradeRejectionViolation) {
     const rej = ruleEvaluation.firstTradeRejectionViolation;
     throw new Error(
       `TRADE_REJECTED: Trade violated competition rule "${rej.ruleName}". Allowed: ${rej.limitValue} ${rej.unit}, Actual: ${rej.actualValue} ${rej.unit}. Please adjust your trade parameters to submit.`
     );
   }
 
-  // 2. If a catastrophic disqualifying rule violation was breached, atomic commit disqualification and reject trade
-  if (!ruleEvaluation.isCompliant && ruleEvaluation.firstDisqualifyingViolation) {
-    const dqViolation = ruleEvaluation.firstDisqualifyingViolation;
+  // Determine active disqualifying violation (checking explicit DQ or MT5 hard rule violation)
+  const activeDqViolation = ruleEvaluation.firstDisqualifyingViolation || (
+    isMT5Trade && ruleEvaluation.firstTradeRejectionViolation?.severity === 'DISQUALIFY'
+      ? ruleEvaluation.firstTradeRejectionViolation
+      : undefined
+  );
+
+  // 2. Disqualifying violation breached (MT5 or Manual):
+  // Retain the trade in shared_trades as immutable evidence, write to immutable violation log, and lock participant status.
+  if (activeDqViolation || (!ruleEvaluation.isCompliant && ruleEvaluation.firstDisqualifyingViolation)) {
+    const dqViolation = (activeDqViolation || ruleEvaluation.firstDisqualifyingViolation)!;
     const dqBatch = writeBatch(db);
+
+    // Flag trade with violation metadata and save as evidence
+    projection.hasViolation = true;
+    projection.violationRuleName = dqViolation.ruleName;
+    projection.violationSeverity = dqViolation.severity;
+    projection.violationDetails = dqViolation.details;
+    dqBatch.set(projectionRef, cleanUndefined(projection));
+
+    // Write to dedicated immutable violation_log subcollection
+    const violationLogRef = doc(db, 'arenas', competitionId, 'violation_log', dqViolation.id);
+    dqBatch.set(violationLogRef, cleanUndefined(dqViolation));
 
     const updatedViolations = [dqViolation, ...(arena.violations || [])];
     const dqAuditEntry: AuditLog = {
@@ -706,7 +739,8 @@ export async function addCompetitionTrade(input: AddCompetitionTradeInput): Prom
       userId,
       userName: userDisplayName || member.displayName || 'Trader',
       action: 'DISQUALIFIED_RULE_VIOLATION',
-      details: `Disqualified: ${dqViolation.ruleName} (Limit: ${dqViolation.limitValue} ${dqViolation.unit}, Actual: ${dqViolation.actualValue} ${dqViolation.unit})`,
+      details: `Disqualified: ${dqViolation.ruleName} (Limit: ${dqViolation.limitValue} ${dqViolation.unit}, Actual: ${dqViolation.actualValue} ${dqViolation.unit}) [Source: ${isMT5Trade ? 'MT5 Sync' : 'Manual Entry'}]`,
+      tradeId: canonicalTradeId,
       flagged: true
     };
     const dqActivityEntry: CompetitionActivity = {
@@ -715,7 +749,7 @@ export async function addCompetitionTrade(input: AddCompetitionTradeInput): Prom
       userId,
       userName: userDisplayName || member.displayName || 'Trader',
       type: 'dispute',
-      message: `Disqualified from competition: breached ${dqViolation.ruleName} limit.`
+      message: `Disqualified from competition: breached ${dqViolation.ruleName} limit (${isMT5Trade ? 'MT5 Auto-Sync' : 'Trade Entry'}).`
     };
 
     dqBatch.update(arenaDocRef, cleanUndefined({
@@ -748,6 +782,14 @@ export async function addCompetitionTrade(input: AddCompetitionTradeInput): Prom
   // Include candidate trade in final stats
   allUserTrades.push(projection);
   const updatedStats = calculateParticipantStats(allUserTrades, 10000, arena.minTrades || 3);
+
+  // If there are warnings, log each into the immutable violation_log subcollection as well
+  if (ruleEvaluation.warnings.length > 0) {
+    for (const w of ruleEvaluation.warnings) {
+      const warnRef = doc(db, 'arenas', competitionId, 'violation_log', w.id);
+      batch.set(warnRef, cleanUndefined(w));
+    }
+  }
 
   const updatedViolations = ruleEvaluation.warnings.length > 0
     ? [...ruleEvaluation.warnings, ...(arena.violations || [])].slice(0, 100)

@@ -115,6 +115,17 @@ export function TradeDetailModal({
                     Edited ({trade.editsCount})
                   </span>
                 )}
+                {trade.hasViolation && (
+                  <span className="px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800 flex-shrink-0 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-red-600" />
+                    Rule Violation
+                  </span>
+                )}
+                {trade.tradeSource && (
+                  <span className="px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 flex-shrink-0">
+                    {trade.tradeSource.includes('mt5') ? 'MT5 Auto' : 'Manual'}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
                 Logged by <span className="font-semibold text-slate-700 dark:text-slate-200">{trade.userDisplayName || 'Trader'}</span> • {tradeDateStr} {trade.time || ''}
@@ -131,6 +142,31 @@ export function TradeDetailModal({
 
         <div className="p-4 sm:p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           
+          {/* Violation Warning Banner */}
+          {trade.hasViolation && (
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300 text-xs flex items-start gap-3 animate-in fade-in">
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-red-900 dark:text-red-200">
+                    Competition Rule Violation Flagged
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-red-600 text-white">
+                    {trade.violationSeverity || 'DISQUALIFY'}
+                  </span>
+                </div>
+                <p className="font-medium text-red-800 dark:text-red-300">
+                  Breached: <strong>{trade.violationRuleName || 'Governance Rule'}</strong>
+                </p>
+                {trade.violationDetails && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400">
+                    {trade.violationDetails}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Key Outcome Banner */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
             <div className="min-w-0">

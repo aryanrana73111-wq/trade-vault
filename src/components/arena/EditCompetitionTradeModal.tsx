@@ -41,6 +41,12 @@ export function EditCompetitionTradeModal({
 
   const currentMember = user ? arena.members?.[user.uid] : null;
   const isDisqualified = currentMember?.isDisqualified || currentMember?.complianceStatus === 'DISQUALIFIED';
+  const isMT5Trade = Boolean(
+    trade.tradeSource === 'competition_mt5' ||
+    trade.tradeSource === 'mt5' ||
+    trade.tradingAccountId ||
+    trade.mt5AccountId
+  );
 
   // Active competition rules for trade limits
   const maxRiskRule = useMemo(() => {
@@ -228,30 +234,40 @@ export function EditCompetitionTradeModal({
       const rMultiple = riskAmt > 0 ? Number((pnl / riskAmt).toFixed(2)) : 0;
       const tradeRiskPct = (riskAmt / (arena.startingBalance || 10000)) * 100;
 
+      const updates = isMT5Trade
+        ? {
+            entryScreenshot: formData.entryScreenshot || undefined,
+            exitScreenshot: formData.exitScreenshot || undefined,
+            screenshot: formData.entryScreenshot || formData.exitScreenshot || undefined,
+            sharedNotes: formData.learning ? `Learning: ${formData.learning}` : undefined,
+            learning: formData.learning || undefined
+          }
+        : {
+            date: new Date(`${formData.date}T${formData.time}`).getTime() || Date.now(),
+            time: formData.time,
+            market: formData.market,
+            direction: formData.direction,
+            entry,
+            stopLoss,
+            takeProfit: !isNaN(takeProfit) && takeProfit > 0 ? takeProfit : undefined,
+            exit: formData.result === 'WIN' && takeProfit > 0 ? takeProfit : undefined,
+            riskAmount: riskAmt,
+            riskPercent: tradeRiskPct,
+            result: (formData.result || 'WIN') as 'WIN' | 'LOSS' | 'BREAK EVEN' | 'PENDING',
+            pnl,
+            rMultiple,
+            entryScreenshot: formData.entryScreenshot || undefined,
+            exitScreenshot: formData.exitScreenshot || undefined,
+            screenshot: formData.entryScreenshot || formData.exitScreenshot || undefined,
+            sharedNotes: formData.learning ? `Learning: ${formData.learning}` : undefined,
+            learning: formData.learning || undefined
+          };
+
       const updatedTrade = await updateCompetitionTrade({
         competitionId: arena.id,
         tradeId: trade.id,
         userId: user.uid,
-        updates: {
-          date: new Date(`${formData.date}T${formData.time}`).getTime() || Date.now(),
-          time: formData.time,
-          market: formData.market,
-          direction: formData.direction,
-          entry,
-          stopLoss,
-          takeProfit: !isNaN(takeProfit) && takeProfit > 0 ? takeProfit : undefined,
-          exit: formData.result === 'WIN' && takeProfit > 0 ? takeProfit : undefined,
-          riskAmount: riskAmt,
-          riskPercent: tradeRiskPct,
-          result: (formData.result || 'WIN') as 'WIN' | 'LOSS' | 'BREAK EVEN' | 'PENDING',
-          pnl,
-          rMultiple,
-          entryScreenshot: formData.entryScreenshot || undefined,
-          exitScreenshot: formData.exitScreenshot || undefined,
-          screenshot: formData.entryScreenshot || formData.exitScreenshot || undefined,
-          sharedNotes: formData.learning ? `Learning: ${formData.learning}` : undefined,
-          learning: formData.learning || undefined
-        },
+        updates,
         syncToPersonalJournal
       });
 
@@ -319,6 +335,23 @@ export function EditCompetitionTradeModal({
           </div>
         )}
 
+        {isMT5Trade && (
+          <div className="mx-4 sm:mx-6 mt-4 p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl text-xs text-blue-700 dark:text-blue-300 flex items-start gap-3">
+            <Lock className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold text-sm text-blue-900 dark:text-blue-200">
+                Verified MT5 Broker Execution
+              </p>
+              <p className="text-blue-800 dark:text-blue-300">
+                Core execution levels (Instrument, direction, price, P&L, timestamps) are certified via MT5 and locked against manual alteration to safeguard tournament fair play.
+              </p>
+              <p className="text-[11px] text-blue-600 dark:text-blue-400">
+                You can freely record psychological learnings and upload chart screenshots below.
+              </p>
+            </div>
+          </div>
+        )}
+
         {errorMessage && (
           <div className="mx-4 sm:mx-6 mt-4 p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -337,7 +370,8 @@ export function EditCompetitionTradeModal({
                 value={formData.date}
                 onChange={e => setFormData(p => ({ ...p, date: e.target.value }))}
                 required
-                className="text-xs sm:text-sm h-10"
+                disabled={isMT5Trade}
+                className={cn("text-xs sm:text-sm h-10", isMT5Trade && "opacity-75 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed")}
               />
             </div>
             <div className="space-y-1.5">
@@ -347,7 +381,8 @@ export function EditCompetitionTradeModal({
                 value={formData.time}
                 onChange={e => setFormData(p => ({ ...p, time: e.target.value }))}
                 required
-                className="text-xs sm:text-sm h-10"
+                disabled={isMT5Trade}
+                className={cn("text-xs sm:text-sm h-10", isMT5Trade && "opacity-75 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed")}
               />
             </div>
           </div>
@@ -359,6 +394,7 @@ export function EditCompetitionTradeModal({
               onChange={market => setFormData(p => ({ ...p, market }))}
               userId={user?.uid}
               required
+              disabled={isMT5Trade}
               label="Market / Instrument"
             />
 
@@ -367,8 +403,11 @@ export function EditCompetitionTradeModal({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
+                  disabled={isMT5Trade}
                   onClick={() => setFormData(p => ({ ...p, direction: 'BUY' }))}
                   className={`h-11 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all border-2 ${
+                    isMT5Trade ? 'cursor-not-allowed opacity-80 ' : ''
+                  }${
                     formData.direction === 'BUY'
                       ? 'border-emerald-600 bg-emerald-600 text-white shadow-md shadow-emerald-500/20 ring-2 ring-emerald-500/20'
                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-emerald-400'
@@ -378,8 +417,11 @@ export function EditCompetitionTradeModal({
                 </button>
                 <button
                   type="button"
+                  disabled={isMT5Trade}
                   onClick={() => setFormData(p => ({ ...p, direction: 'SELL' }))}
                   className={`h-11 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all border-2 ${
+                    isMT5Trade ? 'cursor-not-allowed opacity-80 ' : ''
+                  }${
                     formData.direction === 'SELL'
                       ? 'border-rose-600 bg-rose-600 text-white shadow-md shadow-rose-500/20 ring-2 ring-rose-500/20'
                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-rose-400'
@@ -402,7 +444,8 @@ export function EditCompetitionTradeModal({
                 onChange={e => setFormData(p => ({ ...p, entry: e.target.value }))}
                 placeholder="2650.50"
                 required
-                className="text-xs sm:text-sm h-10"
+                disabled={isMT5Trade}
+                className={cn("text-xs sm:text-sm h-10", isMT5Trade && "opacity-75 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed")}
               />
             </div>
             <div className="space-y-1.5">
@@ -414,7 +457,8 @@ export function EditCompetitionTradeModal({
                 onChange={e => setFormData(p => ({ ...p, stopLoss: e.target.value }))}
                 placeholder="2645.00"
                 required
-                className="text-xs sm:text-sm h-10 border-rose-200 dark:border-rose-900/50"
+                disabled={isMT5Trade}
+                className={cn("text-xs sm:text-sm h-10 border-rose-200 dark:border-rose-900/50", isMT5Trade && "opacity-75 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed")}
               />
             </div>
             <div className="space-y-1.5">
@@ -426,7 +470,8 @@ export function EditCompetitionTradeModal({
                 onChange={e => setFormData(p => ({ ...p, takeProfit: e.target.value }))}
                 placeholder="2665.00"
                 required
-                className="text-xs sm:text-sm h-10 border-emerald-200 dark:border-emerald-900/50"
+                disabled={isMT5Trade}
+                className={cn("text-xs sm:text-sm h-10 border-emerald-200 dark:border-emerald-900/50", isMT5Trade && "opacity-75 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed")}
               />
             </div>
             <div className="space-y-1.5">
@@ -450,8 +495,10 @@ export function EditCompetitionTradeModal({
                 onChange={e => setFormData(p => ({ ...p, riskAmount: e.target.value }))}
                 placeholder={maxRiskAllowedDollars ? String(maxRiskAllowedDollars) : "50"}
                 required
+                disabled={isMT5Trade}
                 className={cn(
                   "text-xs sm:text-sm h-10 font-bold",
+                  isMT5Trade && "opacity-75 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed",
                   maxRiskAllowedDollars !== null && (parseFloat(formData.riskAmount) || 0) > maxRiskAllowedDollars &&
                     "border-rose-500 focus-visible:ring-rose-500 text-rose-600 dark:text-rose-400"
                 )}
@@ -470,6 +517,7 @@ export function EditCompetitionTradeModal({
                 type="button"
                 size="sm"
                 variant="outline"
+                disabled={isMT5Trade}
                 className="h-6 px-2 text-[10px] border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50"
                 onClick={() => setFormData(p => ({ ...p, riskAmount: String(maxRiskAllowedDollars) }))}
               >
@@ -512,8 +560,11 @@ export function EditCompetitionTradeModal({
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
+                disabled={isMT5Trade}
                 onClick={() => handleResultChange('WIN')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border-2 ${
+                  isMT5Trade ? 'cursor-not-allowed opacity-80 ' : ''
+                }${
                   formData.result === 'WIN'
                     ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-emerald-400'
@@ -523,8 +574,11 @@ export function EditCompetitionTradeModal({
               </button>
               <button
                 type="button"
+                disabled={isMT5Trade}
                 onClick={() => handleResultChange('LOSS')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border-2 ${
+                  isMT5Trade ? 'cursor-not-allowed opacity-80 ' : ''
+                }${
                   formData.result === 'LOSS'
                     ? 'border-rose-600 bg-rose-600 text-white shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-rose-400'
@@ -534,8 +588,11 @@ export function EditCompetitionTradeModal({
               </button>
               <button
                 type="button"
+                disabled={isMT5Trade}
                 onClick={() => handleResultChange('BREAK EVEN')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border-2 ${
+                  isMT5Trade ? 'cursor-not-allowed opacity-80 ' : ''
+                }${
                   formData.result === 'BREAK EVEN'
                     ? 'border-slate-600 bg-slate-600 text-white shadow-sm'
                     : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-400'
@@ -557,13 +614,16 @@ export function EditCompetitionTradeModal({
                 onChange={e => setFormData(p => ({ ...p, pnl: e.target.value }))}
                 placeholder={formData.result === 'WIN' ? '+200' : '-100'}
                 required
-                className={`text-sm h-10 font-bold ${
+                disabled={isMT5Trade}
+                className={cn(
+                  "text-sm h-10 font-bold",
+                  isMT5Trade && "opacity-75 bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed",
                   parseFloat(formData.pnl) > 0
                     ? 'text-emerald-600'
                     : parseFloat(formData.pnl) < 0
                     ? 'text-rose-600'
                     : ''
-                }`}
+                )}
               />
             </div>
           </div>

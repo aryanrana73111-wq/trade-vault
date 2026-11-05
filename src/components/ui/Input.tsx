@@ -92,9 +92,9 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       ref={ref}
       className={cn(
         'rounded-2xl transition-all duration-200 text-slate-900 dark:text-slate-100 overflow-hidden',
-        variant === 'glass' && 'bg-white/78 dark:bg-slate-900/68 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.08] shadow-[0_4px_20px_-2px_rgba(15,23,42,0.04)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] hover:border-slate-300/90 dark:hover:border-white/[0.14]',
-        variant === 'solid' && 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm',
-        variant === 'subtle' && 'bg-slate-50/70 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/60 dark:border-white/[0.05]',
+        variant === 'glass' && 'bg-white/80 dark:bg-black/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.08] shadow-[0_4px_20px_-2px_rgba(15,23,42,0.04)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.55)] hover:border-slate-300/90 dark:hover:border-blue-500/30',
+        variant === 'solid' && 'bg-white dark:bg-black border border-slate-200 dark:border-white/[0.08] shadow-sm',
+        variant === 'subtle' && 'bg-slate-50/70 dark:bg-black/50 backdrop-blur-sm border border-slate-200/60 dark:border-white/[0.05]',
         interactive && 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0',
         className
       )}

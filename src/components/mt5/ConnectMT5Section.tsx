@@ -101,7 +101,7 @@ export function ConnectMT5Section({
               }}
               className="gap-2 bg-slate-850 hover:bg-slate-800 text-slate-200 border-slate-700 py-2.5 px-4 rounded-xl"
             >
-              <Plus className="w-4 h-4 text-emerald-400" /> Create MT5 Account
+              <Plus className="w-4 h-4 text-emerald-400" /> Broker Directory
             </Button>
 
             {onSwitchToManual && (
@@ -160,10 +160,23 @@ export function ConnectMT5Section({
 
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
               <Button
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => {
+                  setModalTab('connect');
+                  setIsModalOpen(true);
+                }}
                 className="gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold"
               >
-                <Plus className="w-4 h-4" /> Connect Your First Account
+                <Zap className="w-4 h-4" /> Connect Existing MT5
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setModalTab('create');
+                  setIsModalOpen(true);
+                }}
+                className="gap-2 bg-slate-850 hover:bg-slate-800 text-slate-200 border-slate-700"
+              >
+                <Plus className="w-4 h-4 text-emerald-400" /> Create MT5 Account
               </Button>
               {onSwitchToManual && (
                 <Button

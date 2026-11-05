@@ -264,6 +264,8 @@
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
+        "provider": { "type": "string" },
+        "providerAccountId": { "type": "string" },
         "accountNumber": { "type": "string" },
         "accountName": { "type": "string" },
         "broker": { "type": "string" },
@@ -271,6 +273,9 @@
         "connectionType": { "type": "string", "enum": ["demo", "live"] },
         "status": { "type": "string" },
         "currency": { "type": "string" },
+        "challengeStartingBalance": { "type": "number" },
+        "liveMt5Balance": { "type": "number" },
+        "liveMt5Equity": { "type": "number" },
         "balance": { "type": "number" },
         "equity": { "type": "number" },
         "leverage": { "type": "number" },
@@ -281,9 +286,81 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["id", "userId", "accountNumber", "server", "connectionType"]
+    },
+    "CompetitionViolationLog": {
+      "title": "CompetitionViolationLog",
+      "description": "Immutable competition rule violation record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "competitionId": { "type": "string" },
+        "participantId": { "type": "string" },
+        "ruleId": { "type": "string" },
+        "ruleVersion": { "type": "number" },
+        "ruleName": { "type": "string" },
+        "threshold": { "type": "string" },
+        "actualValue": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "relatedTradeId": { "type": "string" },
+        "relatedMT5Ticket": { "type": "string" },
+        "actionTaken": { "type": "string" }
+      },
+      "required": ["id", "competitionId", "participantId", "ruleId", "ruleName", "timestamp", "actionTaken"]
+    },
+    "MT5AccountIndex": {
+      "title": "MT5AccountIndex",
+      "description": "Server-side index of MT5 connected accounts mapped to user ID",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "provider": { "type": "string" },
+        "providerAccountId": { "type": "string" },
+        "mt5Login": { "type": "string" },
+        "mt5Server": { "type": "string" },
+        "platform": { "type": "string" },
+        "status": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "provider", "providerAccountId", "mt5Login", "mt5Server"]
+    },
+    "ChartDrawing": {
+      "title": "ChartDrawing",
+      "description": "User chart analysis drawings, trendlines, geometric tools and annotations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "dashboardId": { "type": "string" },
+        "symbol": { "type": "string" },
+        "timeframe": { "type": "string" },
+        "type": { "type": "string" },
+        "points": { "type": "array" },
+        "style": { "type": "object" },
+        "text": { "type": "string" },
+        "entryPrice": { "type": "number" },
+        "stopLoss": { "type": "number" },
+        "takeProfit": { "type": "number" },
+        "riskReward": { "type": "number" },
+        "isLocked": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "dashboardId", "symbol", "type", "points", "createdAt"]
     }
   },
   "firestore": {
+    "/users/{userId}/dashboards/{dashboardId}/chart_drawings/{drawingDocId}": {
+      "schema": { "$ref": "#/entities/ChartDrawing" },
+      "description": "User chart analysis drawings isolated by user, dashboard and symbol"
+    },
+    "/mt5_accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/MT5AccountIndex" },
+      "description": "Server-side index of MT5 connected accounts"
+    },
+    "/arenas/{arenaId}/violations/{violationId}": {
+      "schema": { "$ref": "#/entities/CompetitionViolationLog" },
+      "description": "Immutable competition violation logs"
+    },
     "/users/{userId}/tradingAccounts/{accountId}": {
       "schema": { "$ref": "#/entities/ConnectedTradingAccount" },
       "description": "User's connected MT5 trading accounts"

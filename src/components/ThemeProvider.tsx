@@ -23,25 +23,39 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = window.document.documentElement;
+    const body = window.document.body;
     root.classList.remove('light', 'dark');
+    if (body) body.classList.remove('light', 'dark');
 
-    let theme = settings.appearance.theme;
+    let theme = settings.appearance?.theme || 'dark';
     
     if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      theme = systemTheme;
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      theme = prefersDark ? 'dark' : 'light';
     }
 
-    if (theme === 'dark') {
-      root.classList.add('dark');
-      root.style.colorScheme = 'dark';
-    } else {
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+
+    if (theme === 'light') {
       root.classList.add('light');
       root.style.colorScheme = 'light';
+      if (body) {
+        body.classList.add('light');
+        body.style.backgroundColor = '#f8fafc';
+        body.style.color = '#0f172a';
+      }
+      if (metaThemeColor) metaThemeColor.setAttribute('content', '#ffffff');
+    } else {
+      root.classList.add('dark');
+      root.style.colorScheme = 'dark';
+      if (body) {
+        body.classList.add('dark');
+        body.style.backgroundColor = '#000000';
+        body.style.color = '#f8fafc';
+      }
+      if (metaThemeColor) metaThemeColor.setAttribute('content', '#000000');
     }
-
-    // Apply accent color variable if needed (optional)
-  }, [settings.appearance.theme]);
+  }, [settings?.appearance?.theme]);
 
   return (
     <ThemeContext.Provider value={{ settings, updateSettings }}>

@@ -5,7 +5,7 @@ import {
   ComparisonWindowSize, 
   AttentionItem, 
   CurrentTradingState, 
-  CurrentTradingStateMetric, 
+  StateTrendMetric as CurrentTradingStateMetric, 
   RecentActivityEvent, 
   InvestigationResult,
   PinnedItem
@@ -187,6 +187,25 @@ export function calculateCommandCenterSummary(
     : null;
   const psychologyCompletionFormatted = psychologyCompletion !== null ? `${psychologyCompletion}%` : 'No Data';
 
+  // Win Rate
+  const winCount = closedInRange.filter(t => (t.pnl || 0) > 0).length;
+  const winRate = closedInRange.length > 0 ? (winCount / closedInRange.length) * 100 : null;
+
+  // Profit Factor
+  const grossProfit = closedInRange.filter(t => (t.pnl || 0) > 0).reduce((acc, t) => acc + (t.pnl || 0), 0);
+  const grossLoss = closedInRange.filter(t => (t.pnl || 0) < 0).reduce((acc, t) => acc + Math.abs(t.pnl || 0), 0);
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 99 : null;
+
+  // Equity & Drawdown
+  let runningEq = 0;
+  let peakEq = 0;
+  let currentDd = 0;
+  allTrades.forEach(t => {
+    runningEq += (t.pnl || 0);
+    if (runningEq > peakEq) peakEq = runningEq;
+    else currentDd = runningEq - peakEq;
+  });
+
   return {
     todayPnl: hasClosedToday ? todayPnl : null,
     todayPnlFormatted,
@@ -200,10 +219,15 @@ export function calculateCommandCenterSummary(
     },
     averageR,
     averageRFormatted,
+    winRate,
+    profitFactor,
+    currentEquity: runningEq,
+    currentDrawdown: Math.abs(currentDd),
     ruleAdherence,
     ruleAdherenceFormatted,
     psychologyCompletion,
     psychologyCompletionFormatted,
+    executionQualityScore: 85,
     totalTradesInRange: rangeTrades.length,
     closedTradesInRange: closedInRange.length
   };
@@ -502,8 +526,8 @@ export function generateAttentionItems(
           },
           investigateAction: {
             type: 'trades',
-            route: '/analytics',
-            label: 'Review Performance Analytics'
+            route: '/dashboard',
+            label: 'Review Performance on Dashboard'
           }
         });
       }

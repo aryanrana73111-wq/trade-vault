@@ -41,7 +41,7 @@ export default function Home() {
   const [videoError, setVideoError] = useState(false);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activePreviewTab, setActivePreviewTab] = useState<'dashboard' | 'journal' | 'analytics' | 'calculator' | 'strategies'>('dashboard');
+  const [activePreviewTab, setActivePreviewTab] = useState<'dashboard' | 'journal' | 'commandCenter' | 'calculator' | 'strategies'>('dashboard');
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function Home() {
   const isProfileIncomplete = user && (!profile?.tradingStyle || !profile?.fullName);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white flex flex-col overflow-x-hidden relative">
       {/* 1. Header / Navbar */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-transparent border-b border-white/10 backdrop-blur-xs transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
@@ -482,10 +482,10 @@ export default function Home() {
               onClick={() => navigate('/journal')} 
             />
             <QuickActionCard 
-              title="Analytics" 
-              desc="Quant equity" 
-              icon={<BarChart2 className="w-4 h-4 text-amber-400" />} 
-              onClick={() => navigate('/analytics')} 
+              title="Command Center" 
+              desc="Readiness & bias" 
+              icon={<Compass className="w-4 h-4 text-amber-400" />} 
+              onClick={() => navigate('/command-center')} 
             />
             <QuickActionCard 
               title="Strategies" 
@@ -592,10 +592,10 @@ export default function Home() {
           />
           <WorkflowStep 
             number="5"
-            title="ANALYZE"
-            desc="Equity Curves, R-Multiples & Session Heatmaps"
-            route="/analytics"
-            badge="Statistics"
+            title="COMMAND CENTER"
+            desc="Session Readiness, Macro Bias & Invalidation Planning"
+            route="/command-center"
+            badge="Intelligence"
           />
           <WorkflowStep 
             number="6"
@@ -625,7 +625,7 @@ export default function Home() {
               Everything you need to understand your trading.
             </h2>
             <p className="text-slate-400 text-sm sm:text-base mt-3 leading-relaxed">
-              TradeVault connects your execution, risk management, strategies, rules, learning and analytics into one trading workflow.
+              TradeVault connects your execution, risk management, strategies, rules, learning and command center into one trading workflow.
             </p>
           </div>
 
@@ -641,14 +641,14 @@ export default function Home() {
               route="/journal"
             />
 
-            {/* 2. Advanced Analytics */}
+            {/* 2. Command Center */}
             <FeatureCard 
-              icon={<BarChart2 className="w-6 h-6 text-sky-400" />}
-              title="Advanced Analytics"
-              desc="Turn your trading history into measurable evidence."
-              bullets={['Advance Equity Curve', 'R-Multiple Buckets', 'Drawdown Underwater Analysis', 'Session & Heatmap Matrices']}
-              buttonText="Explore Analytics"
-              route="/analytics"
+              icon={<Compass className="w-6 h-6 text-sky-400" />}
+              title="Command Center"
+              desc="Pre-flight execution cockpit for session readiness and macro context."
+              bullets={['Pre-Trade Readiness Checklist', 'Macro Invalidation Radar', 'Live Session Overlap Tracking', 'Real-Time Risk Guardrails']}
+              buttonText="Explore Command Center"
+              route="/command-center"
             />
 
             {/* 3. Risk Calculator */}
@@ -791,7 +791,7 @@ export default function Home() {
           {[
             { id: 'dashboard', label: 'Dashboard', icon: Activity },
             { id: 'journal', label: 'Journal', icon: BookOpen },
-            { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+            { id: 'commandCenter', label: 'Command Center', icon: Compass },
             { id: 'calculator', label: 'Risk Calculator', icon: Calculator },
             { id: 'strategies', label: 'Strategies', icon: Target },
           ].map(tab => {
@@ -900,9 +900,9 @@ export default function Home() {
               </motion.div>
             )}
 
-            {activePreviewTab === 'analytics' && (
+            {activePreviewTab === 'commandCenter' && (
               <motion.div 
-                key="analytics"
+                key="commandCenter"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -910,33 +910,33 @@ export default function Home() {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-lg font-bold text-white">Quantitative Analytics & Consistency</h4>
-                    <p className="text-xs text-slate-400">Advanced statistical breakdown including MAE/MFE, session performance matrices, and Monte Carlo.</p>
+                    <h4 className="text-lg font-bold text-white">Pre-Flight Trading Command Center</h4>
+                    <p className="text-xs text-slate-400">Real-time session readiness cockpit, macro catalyst monitoring, and capital protection guardrails.</p>
                   </div>
                   <button
-                    onClick={() => navigate('/analytics')}
+                    onClick={() => navigate('/command-center')}
                     className="self-start sm:self-auto px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-colors flex items-center gap-1.5"
                   >
-                    <span>Open Analytics</span>
+                    <span>Open Command Center</span>
                     <ArrowUpRight className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                    <span className="text-xs text-slate-400">Average R Yield</span>
-                    <div className="text-xl font-bold text-blue-400 mt-1">+1.85 R</div>
-                    <span className="text-[10px] text-slate-500">Across 55 closed executions</span>
+                    <span className="text-xs text-slate-400">Session Status</span>
+                    <div className="text-xl font-bold text-emerald-400 mt-1">London Open</div>
+                    <span className="text-[10px] text-slate-500">Peak liquidity window active</span>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                    <span className="text-xs text-slate-400">Maximum Drawdown</span>
-                    <div className="text-xl font-bold text-rose-400 mt-1">-3.4%</div>
-                    <span className="text-[10px] text-slate-500">Controlled risk limits</span>
+                    <span className="text-xs text-slate-400">Execution Readiness</span>
+                    <div className="text-xl font-bold text-blue-400 mt-1">100% Verified</div>
+                    <span className="text-[10px] text-slate-500">Plan & checklist satisfied</span>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                    <span className="text-xs text-slate-400">Peak Session</span>
-                    <div className="text-xl font-bold text-emerald-400 mt-1">London/NY Overlap</div>
-                    <span className="text-[10px] text-slate-500">74% win rate</span>
+                    <span className="text-xs text-slate-400">Risk Guardrail</span>
+                    <div className="text-xl font-bold text-indigo-400 mt-1">Active (1.5% max)</div>
+                    <span className="text-[10px] text-slate-500">Zero unplanned orders allowed</span>
                   </div>
                 </div>
               </motion.div>
@@ -1045,10 +1045,10 @@ export default function Home() {
               <ArrowRight className="w-5 h-5" />
             </button>
             <button
-              onClick={() => navigate('/analytics')}
+              onClick={() => navigate('/command-center')}
               className="w-full sm:w-auto px-7 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-base transition-colors"
             >
-              Explore Analytics
+              Explore Command Center
             </button>
           </div>
         </div>
@@ -1081,7 +1081,7 @@ export default function Home() {
               <h5 className="font-bold text-slate-200 text-xs uppercase tracking-wider">Product</h5>
               <ul className="space-y-2">
                 <li><Link to="/journal" className="hover:text-white transition-colors">Trading Journal</Link></li>
-                <li><Link to="/analytics" className="hover:text-white transition-colors">Analytics</Link></li>
+                <li><Link to="/command-center" className="hover:text-white transition-colors">Command Center</Link></li>
                 <li><Link to="/calculator" className="hover:text-white transition-colors">Risk Calculator</Link></li>
                 <li><Link to="/strategies" className="hover:text-white transition-colors">Strategies Lab</Link></li>
                 <li><Link to="/arena" className="hover:text-white transition-colors">Competition Arena</Link></li>

@@ -108,8 +108,8 @@ export function MarketSelector({
           <optgroup label="Standard Markets">
             {options
               .filter(o => !o.isCustom)
-              .map(o => (
-                <option key={o.value} value={o.value}>
+              .map((o, idx) => (
+                <option key={`std-mkt-${o.value}-${idx}`} value={o.value}>
                   {o.label}
                 </option>
               ))}
@@ -118,8 +118,8 @@ export function MarketSelector({
             <optgroup label="Custom Instruments">
               {options
                 .filter(o => o.isCustom)
-                .map(o => (
-                  <option key={o.value} value={o.value}>
+                .map((o, idx) => (
+                  <option key={`cust-mkt-${o.value}-${idx}`} value={o.value}>
                     {o.label}
                   </option>
                 ))}

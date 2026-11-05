@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Arena,
   ArenaMember,
@@ -465,7 +466,7 @@ export function CompetitionRulesView({ arena, onRefresh }: CompetitionRulesViewP
       )}
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto no-scrollbar touch-pan-x flex-nowrap shrink-0">
         <button
           onClick={() => setSubTab('rules')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -903,28 +904,28 @@ export function CompetitionRulesView({ arena, onRefresh }: CompetitionRulesViewP
       )}
 
       {/* ADD / EDIT RULE MODAL */}
-      {isAddRuleOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+      {isAddRuleOpen && typeof document !== 'undefined' && createPortal(
+        <div className="mobile-modal-portal bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 p-4 sm:p-5 shrink-0 bg-slate-50/70 dark:bg-slate-800/60">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shrink-0">
                   <Scale className="w-4 h-4" />
                 </div>
-                <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
+                <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100 truncate">
                   {editingRule ? `Edit Rule: ${editingRule.name}` : 'Add Competition Rule'}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddRuleOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveRule} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveRule} className="p-4 sm:p-6 space-y-4 text-xs flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)]">
               {!editingRule && (
                 <div>
                   <Label className="text-xs font-semibold mb-1 block">Rule Type</Label>
@@ -1054,26 +1055,30 @@ export function CompetitionRulesView({ arena, onRefresh }: CompetitionRulesViewP
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* RULE HISTORY MODAL */}
-      {historyRule && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-indigo-600" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+      {historyRule && typeof document !== 'undefined' && createPortal(
+        <div className="mobile-modal-portal bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md max-h-[85dvh] flex flex-col overflow-hidden shadow-2xl p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <History className="w-4 h-4 text-indigo-600 shrink-0" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
                   {historyRule.name} — Version History
                 </h3>
               </div>
-              <button onClick={() => setHistoryRule(null)}>
-                <X className="w-4 h-4 text-slate-400" />
+              <button 
+                onClick={() => setHistoryRule(null)}
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 max-h-72 overflow-y-auto text-xs">
+            <div className="space-y-3 overflow-y-auto overscroll-contain text-xs flex-1 min-h-0 pr-1">
               {(historyRule.history || []).map((h, i) => (
                 <div key={i} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
                   <div className="flex justify-between font-bold text-slate-900 dark:text-slate-100">
@@ -1095,28 +1100,29 @@ export function CompetitionRulesView({ arena, onRefresh }: CompetitionRulesViewP
               ))}
             </div>
 
-            <div className="pt-2 text-right">
+            <div className="pt-2 text-right border-t border-slate-100 dark:border-slate-800 shrink-0">
               <Button size="sm" variant="outline" onClick={() => setHistoryRule(null)}>
                 Close
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* REINSTATE PARTICIPANT MODAL */}
-      {reinstatingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4">
+      {reinstatingMember && typeof document !== 'undefined' && createPortal(
+        <div className="mobile-modal-portal bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden shadow-2xl p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold shrink-0">
                 <UserCheck className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
                   Reinstate {reinstatingMember.displayName || 'Participant'}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 truncate">
                   Clear disqualification lock and restore trade submission privileges
                 </p>
               </div>
@@ -1154,7 +1160,8 @@ export function CompetitionRulesView({ arena, onRefresh }: CompetitionRulesViewP
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

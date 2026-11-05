@@ -29,13 +29,20 @@ export const googleProvider = new GoogleAuthProvider();
 
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn("Firestore connection notice: backend operating in offline-first mode.");
-    }
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Connection check timeout')), 2500)
+    );
+    await Promise.race([
+      getDocFromServer(doc(db, 'test', 'connection')),
+      timeoutPromise
+    ]);
+  } catch {
+    // Graceful fallback: Firestore SDK will automatically handle offline cache
   }
 }
-testConnection();
+
+if (typeof window !== 'undefined') {
+  testConnection().catch(() => {});
+}
 
 

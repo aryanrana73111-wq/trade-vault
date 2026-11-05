@@ -7,7 +7,6 @@
  */
 
 import { 
-  doc, 
   setDoc, 
   updateDoc, 
   addDoc, 
@@ -15,7 +14,8 @@ import {
   DocumentReference, 
   CollectionReference,
   SetOptions,
-  UpdateData
+  UpdateData,
+  WriteBatch
 } from 'firebase/firestore';
 
 /**
@@ -50,7 +50,15 @@ export function sanitizeForFirestore<T = any>(data: T): T {
       .map(item => sanitizeForFirestore(item)) as unknown as T;
   }
 
-  // Handle plain objects and class instances
+  // Handle plain objects and class instances (preserving Firestore serverTimestamp or FieldValue if present)
+  if (data.constructor && data.constructor.name !== 'Object' && data.constructor.name !== '') {
+    // Check if it's a Firestore special token like FieldValue
+    const className = data.constructor.name;
+    if (className === 'FieldValue' || className === 'Timestamp') {
+      return data;
+    }
+  }
+
   const sanitized: Record<string, any> = {};
 
   for (const [key, value] of Object.entries(data)) {
@@ -82,6 +90,66 @@ export function sanitizeForFirestore<T = any>(data: T): T {
 }
 
 /**
+ * Alias for sanitizeForFirestore to match specification
+ */
+export const sanitizeFirestoreData = sanitizeForFirestore;
+
+/**
+ * Validates that an object is 100% Firestore-safe:
+ * - Contains NO undefined values at any nesting level
+ * - Contains NO NaN or Infinity numeric values
+ * Returns detailed error report if validation fails.
+ */
+export function validateFirestoreData(data: any, path: string = 'root'): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  function check(val: any, currentPath: string) {
+    if (val === undefined) {
+      errors.push(`Field '${currentPath}' is undefined. Firestore forbids undefined values.`);
+      return;
+    }
+
+    if (typeof val === 'number' && (isNaN(val) || !isFinite(val))) {
+      errors.push(`Field '${currentPath}' is NaN or Infinity.`);
+      return;
+    }
+
+    if (val === null || typeof val !== 'object') {
+      return;
+    }
+
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) {
+        errors.push(`Field '${currentPath}' is an invalid Date.`);
+      }
+      return;
+    }
+
+    if (Array.isArray(val)) {
+      val.forEach((item, idx) => check(item, `${currentPath}[${idx}]`));
+      return;
+    }
+
+    // Special Firestore tokens
+    if (val.constructor && val.constructor.name !== 'Object' && val.constructor.name !== '') {
+      if (val.constructor.name === 'FieldValue' || val.constructor.name === 'Timestamp') {
+        return;
+      }
+    }
+
+    for (const [k, v] of Object.entries(val)) {
+      check(v, `${currentPath}.${k}`);
+    }
+  }
+
+  check(data, path);
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
  * Safe wrapper around Firestore setDoc
  */
 export async function safeSetDoc<T>(
@@ -90,6 +158,10 @@ export async function safeSetDoc<T>(
   options?: SetOptions
 ): Promise<void> {
   const cleanData = sanitizeForFirestore(data);
+  const validation = validateFirestoreData(cleanData);
+  if (!validation.isValid) {
+    console.error('Firestore validation error on setDoc:', validation.errors);
+  }
   if (options) {
     return setDoc(reference, cleanData as any, options);
   }
@@ -104,6 +176,10 @@ export async function safeUpdateDoc(
   data: Record<string, any>
 ): Promise<void> {
   const cleanData = sanitizeForFirestore(data);
+  const validation = validateFirestoreData(cleanData);
+  if (!validation.isValid) {
+    console.error('Firestore validation error on updateDoc:', validation.errors);
+  }
   return updateDoc(reference, cleanData as UpdateData<any>);
 }
 
@@ -115,5 +191,46 @@ export async function safeAddDoc<T>(
   data: T
 ): Promise<DocumentReference> {
   const cleanData = sanitizeForFirestore(data);
+  const validation = validateFirestoreData(cleanData);
+  if (!validation.isValid) {
+    console.error('Firestore validation error on addDoc:', validation.errors);
+  }
   return addDoc(reference, cleanData as any);
+}
+
+/**
+ * Safe wrapper around Firestore batch.set
+ */
+export function safeBatchSet<T>(
+  batch: WriteBatch,
+  reference: DocumentReference,
+  data: T,
+  options?: SetOptions
+): void {
+  const cleanData = sanitizeForFirestore(data);
+  const validation = validateFirestoreData(cleanData);
+  if (!validation.isValid) {
+    console.error('Firestore validation error on batch.set:', validation.errors);
+  }
+  if (options) {
+    batch.set(reference, cleanData as any, options);
+  } else {
+    batch.set(reference, cleanData as any);
+  }
+}
+
+/**
+ * Safe wrapper around Firestore batch.update
+ */
+export function safeBatchUpdate(
+  batch: WriteBatch,
+  reference: DocumentReference,
+  data: Record<string, any>
+): void {
+  const cleanData = sanitizeForFirestore(data);
+  const validation = validateFirestoreData(cleanData);
+  if (!validation.isValid) {
+    console.error('Firestore validation error on batch.update:', validation.errors);
+  }
+  batch.update(reference, cleanData as UpdateData<any>);
 }

@@ -94,6 +94,21 @@ export const NAVIGATION_CONFIG: NavSection[] = [
     ]
   },
   {
+    id: 'charts',
+    label: 'Charts',
+    path: '/charts',
+    icon: LineChart,
+    description: 'Professional financial charting, setups & auto-journaling',
+    keywords: ['chart', 'charts', 'candlestick', 'tradingview', 'technical analysis', 'drawings', 'entry', 'stop loss', 'take profit', 'us100', 'gold', 'forex', 'crypto'],
+    children: [
+      { id: 'charts-ndx', label: 'Nasdaq-100 Index', path: '/charts?symbol=NDX', icon: LineChart, keywords: ['nasdaq', 'ndx', 'tech', 'index'] },
+      { id: 'charts-us100', label: 'US100 CFD', path: '/charts?symbol=US100', icon: LineChart, badge: 'CFD', keywords: ['us100', 'cfd', 'nasdaq'] },
+      { id: 'charts-gold', label: 'Gold (XAU/USD)', path: '/charts?symbol=XAUUSD', icon: Flame, keywords: ['gold', 'xau', 'metal'] },
+      { id: 'charts-eurusd', label: 'EUR/USD Forex', path: '/charts?symbol=EURUSD', icon: Activity, keywords: ['forex', 'eurusd', 'euro'] },
+      { id: 'charts-btc', label: 'Bitcoin (BTC/USD)', path: '/charts?symbol=BTCUSD', icon: Zap, keywords: ['btc', 'crypto', 'bitcoin'] },
+    ]
+  },
+  {
     id: 'add-trade',
     label: 'Add Trade',
     path: '/add',
@@ -155,20 +170,6 @@ export const NAVIGATION_CONFIG: NavSection[] = [
     keywords: ['calculator', 'position', 'sizing', 'risk', 'pips', 'lot size', 'leverage'],
     children: [
       { id: 'calc-sizer', label: 'Position Sizing Calculator', path: '/calculator', icon: Calculator, keywords: ['position', 'sizer', 'risk calculation'] },
-    ]
-  },
-  {
-    id: 'analytics',
-    label: 'Analytics',
-    path: '/analytics',
-    icon: BarChart2,
-    description: 'Institutional metrics, distributions & execution analysis',
-    keywords: ['analytics', 'metrics', 'sharpe', 'drawdown', 'profit factor', 'distributions', 'execution'],
-    children: [
-      { id: 'analytics-overview', label: 'Institutional Overview', path: '/analytics?tab=overview', icon: BarChart2, keywords: ['overview', 'metrics', 'kpis', 'drawdown', 'sharpe'] },
-      { id: 'analytics-distributions', label: 'Trade Distributions & Time', path: '/analytics?tab=distributions', icon: LineChart, keywords: ['distributions', 'time', 'holding', 'r-multiple'] },
-      { id: 'analytics-markets', label: 'Markets & Strategy Breakdown', path: '/analytics?tab=markets', icon: PieChart, keywords: ['markets', 'symbols', 'strategies', 'breakdown'] },
-      { id: 'analytics-execution', label: 'Execution Quality & Timing', path: '/analytics?tab=execution', icon: Target, keywords: ['execution', 'slippage', 'timing', 'quality'] },
     ]
   },
   {

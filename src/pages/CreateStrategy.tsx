@@ -131,7 +131,7 @@ export default function CreateStrategy() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-32 animate-in fade-in">
+    <div className="max-w-4xl mx-auto pb-12 md:pb-8 animate-in fade-in">
       <div className="mb-6 flex items-center gap-4">
         <button onClick={() => navigate('/strategies')} className="p-2 -ml-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -424,12 +424,12 @@ export default function CreateStrategy() {
           </div>
         </Card>
 
-        {/* Sticky Actions */}
-        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200/80 dark:border-white/[0.08] flex justify-end gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-          <Button type="button" variant="ghost" onClick={() => navigate('/strategies')} className="hidden sm:flex">
+        {/* Actions */}
+        <div className="mt-8 pt-6 pb-6 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 border-t border-slate-200/80 dark:border-white/[0.08]">
+          <Button type="button" variant="ghost" onClick={() => navigate('/strategies')} className="w-full sm:w-auto min-h-[44px]">
             Cancel
           </Button>
-          <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[160px] gap-2">
+          <Button type="submit" size="lg" className="w-full sm:w-auto min-w-[160px] min-h-[44px] gap-2">
             <Save className="w-4 h-4" /> Save Strategy
           </Button>
         </div>

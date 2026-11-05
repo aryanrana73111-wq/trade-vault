@@ -8,7 +8,6 @@ import {
   Pin, 
   Clock, 
   Settings, 
-  LogOut, 
   ExternalLink,
   Sparkles,
   Check,
@@ -39,7 +38,7 @@ const DEFAULT_PINNED_PATHS = [
 export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, logout, activeDashboard, dashboards, setActiveDashboard, isAdmin } = useAuth();
+  const { user, profile, activeDashboard, dashboards, setActiveDashboard, isAdmin } = useAuth();
   const isOwnerAdmin = isAdmin || user?.email?.toLowerCase() === 'aryanrana73111@gmail.com';
 
   // Search query
@@ -189,16 +188,6 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
     onClose();
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      onClose();
-      navigate('/login');
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-  };
-
   // Check if a path is currently active
   const isItemActive = (targetPath: string) => {
     if (targetPath.includes('?')) {
@@ -240,17 +229,17 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
         onClick={onClose} 
       />
 
-      {/* Slide-out Drawer Panel */}
+      {/* Slide-out Drawer Panel (Full Transparent Glass) */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative flex flex-col w-[85vw] max-w-[340px] sm:max-w-[380px] h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl z-10 overflow-hidden transform transition-transform duration-300 ease-out select-none ${
+        className={`relative flex flex-col w-[85vw] max-w-[340px] sm:max-w-[380px] h-full bg-white/70 dark:bg-black/40 backdrop-blur-2xl border-r border-slate-200/40 dark:border-white/[0.1] shadow-2xl z-10 overflow-hidden transform transition-transform duration-300 ease-out select-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Drawer Header */}
-        <div className="h-16 flex items-center justify-between px-4 sm:px-5 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
+        <div className="h-16 flex items-center justify-between px-4 sm:px-5 border-b border-slate-100/60 dark:border-white/[0.08] shrink-0 bg-transparent backdrop-blur-md">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-sm shadow-blue-500/20 shrink-0">
               <svg className="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -271,7 +260,7 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 transition-colors"
+            className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-white/[0.08] shrink-0 transition-colors"
             aria-label="Close navigation"
           >
             <X className="w-5 h-5" />
@@ -279,7 +268,7 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
         </div>
 
         {/* Quick Navigation Search */}
-        <div className="px-3 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800/80 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="px-3 pt-3 pb-2 border-b border-slate-100 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-black/50">
           <div className="relative flex items-center">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
             <input
@@ -565,7 +554,7 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
         </div>
 
         {/* Drawer Footer (Profile, Settings, Sign Out) */}
-        <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-slate-50/70 dark:bg-slate-900/90 backdrop-blur-md space-y-2">
+        <div className="p-3.5 border-t border-slate-100/60 dark:border-white/[0.08] shrink-0 bg-white/10 dark:bg-black/20 backdrop-blur-md space-y-2">
           {/* Owner Admin Navigation — strictly hidden for normal users */}
           {isOwnerAdmin && (
             <div className="p-2.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-500/30 space-y-1.5 mb-2">
@@ -579,7 +568,7 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
                 <button
                   type="button"
                   onClick={() => handleNavigate('/admin/users')}
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-blue-400 transition-colors"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white dark:bg-black border border-slate-200 dark:border-white/[0.1] text-slate-800 dark:text-slate-200 hover:border-blue-400 transition-colors"
                 >
                   <Users className="w-3.5 h-3.5 text-blue-500" />
                   <span>Users</span>
@@ -587,7 +576,7 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
                 <button
                   type="button"
                   onClick={() => handleNavigate('/admin?tab=activity')}
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-blue-400 transition-colors"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold bg-white dark:bg-black border border-slate-200 dark:border-white/[0.1] text-slate-800 dark:text-slate-200 hover:border-blue-400 transition-colors"
                 >
                   <Activity className="w-3.5 h-3.5 text-blue-500" />
                   <span>Activity</span>
@@ -599,7 +588,7 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
           {/* User profile banner */}
           <div 
             onClick={() => handleNavigate('/settings?tab=profile')}
-            className="flex items-center gap-3 p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70 shadow-2xs cursor-pointer hover:border-blue-300 transition-all"
+            className="flex items-center gap-3 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-white/[0.08] shadow-2xs cursor-pointer hover:border-blue-300 dark:hover:border-blue-500/40 transition-all"
           >
             <UserAvatar avatarUrl={profile?.avatarUrl} size="md" />
             <div className="flex-1 min-w-0">
@@ -613,24 +602,14 @@ export const MobileSlideOutDrawer: React.FC<MobileSlideOutDrawerProps> = ({ isOp
             <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
           </div>
 
-          <div className="flex items-center gap-1.5 pt-1">
+          <div className="pt-1">
             <button
               type="button"
               onClick={() => handleNavigate('/settings')}
-              className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-2xs cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold bg-white dark:bg-black border border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors shadow-2xs cursor-pointer"
             >
               <Settings className="w-3.5 h-3.5" />
-              <span>Settings</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Logout</span>
+              <span>Settings & Account</span>
             </button>
           </div>
 

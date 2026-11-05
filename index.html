@@ -1,6 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark" style="background-color: #020617; color-scheme: dark;">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>TradeVault — Evidence-First Trading Operating System</title>
+    <meta name="description" content="Journal trades, analyze performance, manage risk, study trading behavior and build a disciplined trading process." />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TradeVault" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <meta property="og:title" content="TradeVault — Evidence-First Trading Operating System" />
+    <meta property="og:description" content="Journal trades, analyze performance, manage risk, study trading behavior and build a disciplined trading process." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
     <script>
       // Runtime constraint: HMR is disabled in preview environment; suppress Vite WebSocket connection errors
       (function() {
@@ -17,25 +33,20 @@
         console.warn = filterVite(console.warn);
       })();
     </script>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TradeVault — Evidence-First Trading Operating System</title>
-    <meta name="description" content="Journal trades, analyze performance, manage risk, study trading behavior and build a disciplined trading process." />
-    <meta name="theme-color" content="#0f172a" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="TradeVault" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
-    <meta property="og:title" content="TradeVault — Evidence-First Trading Operating System" />
-    <meta property="og:description" content="Journal trades, analyze performance, manage risk, study trading behavior and build a disciplined trading process." />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="dark bg-slate-950 text-slate-100 antialiased" style="margin: 0; padding: 0; background-color: #020617; color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #020617; color: #f8fafc;">
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(37, 99, 235, 0.18); border: 1px solid rgba(59, 130, 246, 0.35); display: flex; align-items: center; justify-content: center; margin-bottom: 14px;">
+          <div style="width: 22px; height: 22px; border: 2.5px solid #3b82f6; border-top-color: transparent; border-radius: 50%; animation: tv-spin 0.75s linear infinite;"></div>
+        </div>
+        <div style="font-weight: 700; font-size: 17px; letter-spacing: -0.01em; color: #ffffff;">TradeVault</div>
+        <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Loading workspace...</div>
+        <style>
+          @keyframes tv-spin { to { transform: rotate(360deg); } }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

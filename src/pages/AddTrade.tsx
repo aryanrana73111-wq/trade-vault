@@ -8,14 +8,33 @@ import { Trade, Market, Direction, Session, Emotion, Timeframe, MarketCondition,
 import { cn, formatCurrency } from '@/lib/utils';
 import { calculateTradeMetrics } from '@/lib/calculations';
 import { compressImageToDataUrl } from '@/lib/avatarStorage';
-import { UploadCloud, CheckCircle2, X, AlertTriangle, Newspaper, Swords, Trophy, Zap, Plus } from 'lucide-react';
+import { UploadCloud, CheckCircle2, X, AlertTriangle, Newspaper, Swords, Trophy, Zap, Plus, Sparkles, RefreshCw, Layers, Sliders, Info, HelpCircle, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { NEWS_EVENTS } from '@/data/newsIntelligenceData';
 import { useArena } from '@/contexts/ArenaContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { addCompetitionTrade } from '@/lib/arenaService';
 import { MarketSelector } from '@/components/common/MarketSelector';
-import { ConnectMT5Section } from '@/components/mt5/ConnectMT5Section';
+import { MT5ExtractedTrade } from '@/types/mt5Screenshot';
+import { FieldSourceIndicator, FieldSource } from '@/components/common/FieldSourceIndicator';
+import { fetchHistoricalPrice } from '@/lib/historicalPriceClient';
+import { HistoricalQuoteResult } from '@/types/marketData';
+import { calculateRiskAmountFromLot, calculateRealizedPnlFromExit, getInstrumentSpecification } from '@/lib/instrumentSpecs';
+import { saveMT5ScreenshotAttachment } from '@/lib/mt5ScreenshotStorage';
+import { TradeSaveCelebrationModal, TradeCelebrationData } from '@/components/trades/TradeSaveCelebrationModal';
+import { MilestoneUnlockCelebrationModal } from '@/components/dashboard/milestones/MilestoneUnlockCelebrationModal';
+import { 
+  MILESTONE_FEATURES, 
+  MilestoneFeatureDef, 
+  getQualifyingTrades, 
+  getUnlockedMilestonesCount, 
+  getAcknowledgedMilestones, 
+  setAcknowledgedMilestones 
+} from '@/lib/milestoneAnalytics';
+
+// Feature Flags: Currently locked as requested for upcoming release
+const IS_MT5_CONNECTOR_LOCKED = true;
+const IS_SCREENSHOT_REVIEW_LOCKED = true;
 
 export interface AddTradeProps {
   onSuccess?: (savedTrade: Trade) => void;
@@ -25,7 +44,7 @@ export interface AddTradeProps {
 
 export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps = {}) {
   const navigate = useNavigate();
-  const { strategies: rawStrategies, saveTrade } = useData();
+  const { trades = [], strategies: rawStrategies, saveTrade } = useData();
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   
   const [formData, setFormData] = useState(() => {
@@ -55,6 +74,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
       pnl: '',
       screenshot: '',
       exitScreenshot: '',
+      extraImages: [] as string[],
       newsEventId: '',
       newsEventName: '',
       newsImpact: '',
@@ -93,6 +113,45 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
   const { user } = useAuth();
   const { arenas } = useArena();
   const [selectedCompetitionIds, setSelectedCompetitionIds] = useState<string[]>([]);
+
+  // MT5 Screenshot & Provenance State
+  const [mt5ScreenshotUrl, setMt5ScreenshotUrl] = useState<string>('');
+  const [rawSymbol, setRawSymbol] = useState<string>('');
+  const [normalizedMarket, setNormalizedMarket] = useState<string>('');
+  const [symbolMappingSource, setSymbolMappingSource] = useState<string>('');
+  const [mt5TicketId, setMt5TicketId] = useState<string>('');
+  const [mt5AnalysisId, setMt5AnalysisId] = useState<string>('');
+  const [mt5CurrentImageId, setMt5CurrentImageId] = useState<string>('');
+  const [tradeSource, setTradeSource] = useState<'manual' | 'mt5_screenshot'>('manual');
+  const [screenshotNotice, setScreenshotNotice] = useState<string | null>(null);
+
+  // Field provenance tracking (manual | historical_quote | mt5_screenshot | auto_calculated | quick_result_1r)
+  const [fieldSources, setFieldSources] = useState<Record<string, FieldSource>>({});
+
+  // Historical price auto-fetch state
+  const [isFetchingHistoricalPrice, setIsFetchingHistoricalPrice] = useState(false);
+  const [historicalQuote, setHistoricalQuote] = useState<HistoricalQuoteResult | null>(null);
+  const [historicalPriceError, setHistoricalPriceError] = useState<string | null>(null);
+
+  // Smart Risk calculation state & instrument specifications
+  const [riskSpecNotice, setRiskSpecNotice] = useState<string | null>(null);
+  const [specDetails, setSpecDetails] = useState<any | null>(null);
+
+  // Smart Result & P&L state
+  const [quickResultMode, setQuickResultMode] = useState<boolean>(false);
+  const [useTpAsExit, setUseTpAsExit] = useState<boolean>(false);
+  const [resultPnlNotice, setResultPnlNotice] = useState<string | null>(null);
+
+  // Trade Save Celebration state
+  const [celebrationData, setCelebrationData] = useState<TradeCelebrationData | null>(null);
+  const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(false);
+  const [pendingSavedTrade, setPendingSavedTrade] = useState<Trade | null>(null);
+  const [pendingAddAnother, setPendingAddAnother] = useState<boolean>(false);
+
+  // Milestone Unlock Celebration state
+  const [pendingMilestoneFeature, setPendingMilestoneFeature] = useState<MilestoneFeatureDef | null>(null);
+  const [showMilestoneCelebrationModal, setShowMilestoneCelebrationModal] = useState<boolean>(false);
+  const [milestoneTradeCount, setMilestoneTradeCount] = useState<number>(0);
 
   // Eligible active competitions
   const activeCompetitions = useMemo(() => {
@@ -176,9 +235,260 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
     }
   }, [formData.entry, formData.stopLoss, formData.takeProfit, formData.risk, formData.direction]);
 
+  // Live Stop & Target Distances (price distance & points)
+  const stopDistance = useMemo(() => {
+    const entry = parseFloat(formData.entry);
+    const sl = parseFloat(formData.stopLoss);
+    if (entry > 0 && sl > 0) {
+      return Number(Math.abs(entry - sl).toFixed(5));
+    }
+    return 0;
+  }, [formData.entry, formData.stopLoss]);
+
+  const targetDistance = useMemo(() => {
+    const entry = parseFloat(formData.entry);
+    const tp = parseFloat(formData.takeProfit);
+    if (entry > 0 && tp > 0) {
+      return Number(Math.abs(tp - entry).toFixed(5));
+    }
+    return 0;
+  }, [formData.entry, formData.takeProfit]);
+
+  // Realized R-Multiple live calculation (never fake)
+  const realizedRMultiple = useMemo(() => {
+    const pnlNum = parseFloat(formData.pnl);
+    const riskNum = parseFloat(formData.risk);
+    if (formData.result === 'BREAK EVEN') return 0;
+    if (!isNaN(pnlNum) && !isNaN(riskNum) && riskNum > 0 && formData.result && formData.result !== 'PENDING') {
+      return Number((pnlNum / riskNum).toFixed(2));
+    }
+    return null;
+  }, [formData.pnl, formData.risk, formData.result]);
+
+  // 7 & 9. Smart Historical Price Auto-Fetch UX (Debounced 650ms)
+  useEffect(() => {
+    if (!formData.market || !formData.date || !formData.time || entryMode === 'mt5') {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsFetchingHistoricalPrice(true);
+      setHistoricalPriceError(null);
+      try {
+        const res = await fetchHistoricalPrice({
+          symbol: formData.market,
+          date: formData.date,
+          time: formData.time,
+          direction: formData.direction as 'BUY' | 'SELL',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+        });
+
+        if (res.success && res.quote) {
+          setHistoricalQuote(res.quote);
+          // If entry is empty, auto-populate suggested entry price
+          if (!formData.entry && res.suggestedPrice) {
+            setFormData(prev => ({ ...prev, entry: String(res.suggestedPrice) }));
+            setFieldSources(prev => ({ ...prev, entry: 'historical_quote' }));
+          }
+        } else {
+          setHistoricalQuote(null);
+          if (res.error) setHistoricalPriceError(res.error);
+        }
+      } catch (err: any) {
+        setHistoricalPriceError(err?.message || 'Historical price lookup failed.');
+      } finally {
+        setIsFetchingHistoricalPrice(false);
+      }
+    }, 650);
+
+    return () => clearTimeout(timer);
+  }, [formData.market, formData.date, formData.time, formData.direction, entryMode]);
+
+  // Manual re-fetch historical quote on demand
+  const handleManualFetchHistoricalPrice = async () => {
+    if (!formData.market || !formData.date) return;
+    setIsFetchingHistoricalPrice(true);
+    setHistoricalPriceError(null);
+    try {
+      const res = await fetchHistoricalPrice({
+        symbol: formData.market,
+        date: formData.date,
+        time: formData.time || '12:00',
+        direction: formData.direction as 'BUY' | 'SELL',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+      });
+      if (res.success && res.quote) {
+        setHistoricalQuote(res.quote);
+        if (res.suggestedPrice) {
+          setFormData(prev => ({ ...prev, entry: String(res.suggestedPrice) }));
+          setFieldSources(prev => ({ ...prev, entry: 'historical_quote' }));
+        }
+      } else {
+        setHistoricalPriceError(res.error || 'Quote unavailable.');
+      }
+    } catch (err: any) {
+      setHistoricalPriceError(err?.message || 'Failed to fetch quote.');
+    } finally {
+      setIsFetchingHistoricalPrice(false);
+    }
+  };
+
+  // 10. Smart Risk Amount Auto-Calculation from Market Specs, Entry, SL, Lot
+  useEffect(() => {
+    const entryNum = parseFloat(formData.entry);
+    const slNum = parseFloat(formData.stopLoss);
+    const lotNum = parseFloat(formData.positionSize);
+
+    if (formData.market && entryNum > 0 && slNum > 0 && lotNum > 0) {
+      const riskCalc = calculateRiskAmountFromLot({
+        market: formData.market,
+        entry: entryNum,
+        stopLoss: slNum,
+        lot: lotNum,
+        direction: formData.direction as Direction
+      });
+
+      if (riskCalc.calculable && riskCalc.riskAmount !== undefined) {
+        setRiskSpecNotice(null);
+        setSpecDetails(riskCalc.specUsed || null);
+
+        // Auto-fill risk if empty or previously auto_calculated
+        if (!formData.risk || fieldSources.risk === 'auto_calculated') {
+          setFormData(prev => ({ ...prev, risk: String(riskCalc.riskAmount) }));
+          setFieldSources(prev => ({ ...prev, risk: 'auto_calculated' }));
+        }
+      } else {
+        setRiskSpecNotice(riskCalc.reason || 'Risk cannot be calculated reliably because instrument specifications are missing.');
+        setSpecDetails(null);
+      }
+    } else {
+      setRiskSpecNotice(null);
+    }
+  }, [formData.market, formData.entry, formData.stopLoss, formData.positionSize, formData.direction]);
+
+  // 4. Apply Extracted Data into Existing Add Trade Form
+  const handleApplyExtractedTrade = (extractedTrade: MT5ExtractedTrade, screenshotDataUrl: string) => {
+    setFormData(prev => ({
+      ...prev,
+      date: extractedTrade.tradeDate.value || prev.date,
+      time: extractedTrade.openTime.value ? extractedTrade.openTime.value.slice(0, 5) : prev.time,
+      market: (extractedTrade.normalizedMarket || extractedTrade.rawSymbol.value || prev.market) as Market,
+      direction: (extractedTrade.direction.value || prev.direction) as Direction,
+      entry: extractedTrade.entryPrice.value !== null ? String(extractedTrade.entryPrice.value) : prev.entry,
+      stopLoss: extractedTrade.stopLoss.value !== null ? String(extractedTrade.stopLoss.value) : prev.stopLoss,
+      takeProfit: extractedTrade.takeProfit.value !== null ? String(extractedTrade.takeProfit.value) : prev.takeProfit,
+      positionSize: extractedTrade.volume.value !== null ? String(extractedTrade.volume.value) : prev.positionSize,
+      pnl: extractedTrade.pnl.value !== null ? String(extractedTrade.pnl.value) : prev.pnl,
+      result: extractedTrade.pnl.value !== null
+        ? (extractedTrade.pnl.value > 0 ? 'WIN' : (extractedTrade.pnl.value < 0 ? 'LOSS' : 'BREAK EVEN'))
+        : prev.result,
+      // User directive: this is an extra image, not the chart entry screenshot
+      screenshot: prev.screenshot === screenshotDataUrl ? '' : prev.screenshot,
+      extraImages: screenshotDataUrl 
+        ? Array.from(new Set([screenshotDataUrl, ...(prev.extraImages || [])])) 
+        : (prev.extraImages || []),
+      // Subjective fields remain completely untouched / blank!
+    }));
+
+    setMt5ScreenshotUrl(screenshotDataUrl);
+    setRawSymbol(extractedTrade.rawSymbol.value || '');
+    setNormalizedMarket(extractedTrade.normalizedMarket || '');
+    setSymbolMappingSource(extractedTrade.symbolMappingSource || 'unmapped');
+    setMt5TicketId(extractedTrade.ticket.value || '');
+    setMt5AnalysisId(extractedTrade.analysisId || '');
+    setMt5CurrentImageId(extractedTrade.currentImageId || '');
+    setTradeSource('mt5_screenshot');
+
+    const newSources: Record<string, FieldSource> = {};
+    if (extractedTrade.rawSymbol.value) newSources.market = 'mt5_screenshot';
+    if (extractedTrade.direction.value) newSources.direction = 'mt5_screenshot';
+    if (extractedTrade.entryPrice.value !== null) newSources.entry = 'mt5_screenshot';
+    if (extractedTrade.volume.value !== null) newSources.positionSize = 'mt5_screenshot';
+    if (extractedTrade.stopLoss.value !== null) newSources.stopLoss = 'mt5_screenshot';
+    if (extractedTrade.takeProfit.value !== null) newSources.takeProfit = 'mt5_screenshot';
+    if (extractedTrade.pnl.value !== null) newSources.pnl = 'mt5_screenshot';
+    setFieldSources(prev => ({ ...prev, ...newSources }));
+
+    setScreenshotNotice(
+      `Extracted trade data applied from MT5 screenshot (${extractedTrade.rawSymbol.value || 'Trade'}${extractedTrade.ticket.value ? ` • Ticket #${extractedTrade.ticket.value}` : ''}). You can review and adjust any field below.`
+    );
+  };
+
+  // 11. Smart Result Auto-Fill with Priority Logic
+  const handleResultSelect = (newResult: 'WIN' | 'LOSS' | 'BREAK EVEN' | 'PENDING' | '') => {
+    if (formData.result === newResult) {
+      setFormData(prev => ({ ...prev, result: '', pnl: '' }));
+      setResultPnlNotice(null);
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, result: newResult }));
+
+    if (newResult === 'PENDING') {
+      setFormData(prev => ({ ...prev, pnl: '' }));
+      setResultPnlNotice(null);
+      return;
+    }
+
+    if (newResult === 'BREAK EVEN') {
+      setFormData(prev => ({ ...prev, pnl: '0' }));
+      setFieldSources(prev => ({ ...prev, pnl: 'auto_calculated' }));
+      setResultPnlNotice(null);
+      return;
+    }
+
+    const entryNum = parseFloat(formData.entry);
+    const lotNum = parseFloat(formData.positionSize);
+    const riskNum = parseFloat(formData.risk) || calc.potentialLoss;
+
+    // Priority 2: Actual MT5 screenshot data available
+    if (fieldSources.pnl === 'mt5_screenshot' && formData.pnl !== '') {
+      setResultPnlNotice('Using extracted realized P&L from MT5 screenshot');
+      return;
+    }
+
+    // Priority 3: TP entered and user enables "Use TP as exit"
+    const tpNum = parseFloat(formData.takeProfit);
+    if (useTpAsExit && newResult === 'WIN' && tpNum > 0 && entryNum > 0 && lotNum > 0) {
+      const tpCalc = calculateRealizedPnlFromExit({
+        market: formData.market,
+        entry: entryNum,
+        exit: tpNum,
+        lot: lotNum,
+        direction: formData.direction as Direction
+      });
+      if (tpCalc.calculable && tpCalc.pnl !== undefined) {
+        setFormData(prev => ({ ...prev, pnl: String(tpCalc.pnl) }));
+        setFieldSources(prev => ({ ...prev, pnl: 'auto_calculated' }));
+        setResultPnlNotice(`P&L calculated using Take Profit (${tpNum}) as target exit`);
+        return;
+      }
+    }
+
+    // Priority 4: Quick Result Mode (1R shortcut)
+    if (quickResultMode && riskNum > 0) {
+      const pnlVal = newResult === 'WIN' ? riskNum : -riskNum;
+      setFormData(prev => ({ ...prev, pnl: String(pnlVal) }));
+      setFieldSources(prev => ({ ...prev, pnl: 'quick_result_1r' }));
+      setResultPnlNotice('Estimated 1R shortcut applied (editable)');
+      return;
+    }
+
+    // Priority 5: None of the above -> DO NOT invent fake realized P&L
+    setResultPnlNotice('Realized P&L needs an exit price or actual result.');
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // If user manually edits a field, clear its auto source badge
+    if (fieldSources[name]) {
+      setFieldSources(prev => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   const toggleEmotion = (emotion: string) => {
@@ -299,6 +609,25 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
       tradeTimestamp = new Date(dateStr).getTime();
     }
 
+    // 5. Save the Original MT5 Screenshot as Trade Attachment
+    let savedAttachment: { url: string; metadata: any } | null = null;
+    if (mt5ScreenshotUrl && user) {
+      try {
+        savedAttachment = await saveMT5ScreenshotAttachment({
+          uid: user.uid,
+          tradeId: '',
+          dataUrl: mt5ScreenshotUrl,
+          fileName: 'mt5_screenshot.png',
+          rawSymbol: rawSymbol || undefined,
+          ticketId: mt5TicketId || undefined,
+          analysisId: mt5AnalysisId || undefined,
+          currentImageId: mt5CurrentImageId || undefined
+        });
+      } catch (uploadErr) {
+        console.warn('Screenshot upload notice:', uploadErr);
+      }
+    }
+
     const tradePayload = {
       date: tradeTimestamp,
       time: formData.time,
@@ -320,9 +649,13 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
       notes: formData.notes,
       mistake: formData.mistake,
       learning: formData.learning,
-      screenshot: formData.screenshot,
+      screenshot: formData.screenshot || undefined,
       entryScreenshot: formData.screenshot || undefined,
       exitScreenshot: formData.exitScreenshot || undefined,
+      extraImages: Array.from(new Set([
+        ...(mt5ScreenshotUrl ? [savedAttachment?.url || mt5ScreenshotUrl] : []),
+        ...(formData.extraImages || [])
+      ])).filter(Boolean) as string[],
       result: formData.result ? formData.result as any : undefined,
       pnl: finalPnl,
       rrRatio: calc.rrRatio,
@@ -332,6 +665,19 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
       newsEventId: formData.newsEventId || undefined,
       newsEventName: formData.newsEventName || undefined,
       newsImpact: (formData.newsImpact as 'LOW' | 'MEDIUM' | 'HIGH') || undefined,
+
+      // MT5 Screenshot & Provenance
+      tradeSource: tradeSource || (mt5ScreenshotUrl ? 'mt5_screenshot' : 'manual'),
+      rawSymbol: rawSymbol || undefined,
+      normalizedMarket: normalizedMarket || undefined,
+      symbolMappingSource: symbolMappingSource || undefined,
+      mt5TicketId: mt5TicketId || undefined,
+      mt5ScreenshotUrl: savedAttachment?.url || mt5ScreenshotUrl || undefined,
+      mt5ScreenshotMetadata: savedAttachment?.metadata || undefined,
+      mt5AnalysisId: mt5AnalysisId || undefined,
+      mt5CurrentImageId: mt5CurrentImageId || undefined,
+      fieldSources,
+      quickResultMode: quickResultMode || undefined
     };
 
     try {
@@ -380,36 +726,117 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         }
       }
 
+      // 4. Persistence confirmed in Firestore / state!
       setShowToast(true);
       setIsSubmitting(false);
       setTimeout(() => setShowToast(false), 3000);
 
-      if (onSuccess && savedTrade) {
-        onSuccess(savedTrade);
-        return;
+      // 5. Trigger Trade Save Celebration (Sequence step: only after persistence confirmed!)
+      const celebrationItem: TradeCelebrationData = {
+        id: savedTrade?.id,
+        market: formData.market,
+        direction: formData.direction as 'BUY' | 'SELL',
+        positionSize: formData.positionSize || '1',
+        pnl: finalPnl,
+        result: formData.result,
+        source: tradeSource || (mt5ScreenshotUrl ? 'mt5_screenshot' : 'manual'),
+        rawSymbol: rawSymbol || undefined,
+        ticketId: mt5TicketId || undefined
+      };
+
+      // 6. Check if this saved trade unlocks an Advanced Analytics Milestone!
+      if (user && savedTrade) {
+        const dashId = 'default';
+        const updatedTrades = [...trades, savedTrade];
+        const qualifying = getQualifyingTrades(updatedTrades, dashId);
+        const newUnlockedCount = getUnlockedMilestonesCount(qualifying.length);
+        const ack = getAcknowledgedMilestones(user.uid, dashId);
+
+        if (newUnlockedCount > ack && ack >= 0) {
+          const feat = MILESTONE_FEATURES[newUnlockedCount - 1];
+          if (feat) {
+            setPendingMilestoneFeature(feat);
+            setMilestoneTradeCount(qualifying.length);
+            setAcknowledgedMilestones(user.uid, dashId, newUnlockedCount);
+          }
+        }
       }
 
-      if (addAnother) {
-        setFormData(prev => ({
-          ...prev,
-          date: format(new Date(), 'yyyy-MM-dd'),
-          time: format(new Date(), 'HH:mm'),
-          entry: '', stopLoss: '', takeProfit: '', notes: '', mistake: '', learning: '', risk: '', riskPercent: '', positionSize: '', screenshot: '', exitScreenshot: '', result: '', pnl: '',
-          setupQuality: undefined, setupQualityReason: ''
-        }));
-        setChecklistState({});
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        navigate('/journal');
-      }
+      setCelebrationData(celebrationItem);
+      setPendingSavedTrade(savedTrade || null);
+      setPendingAddAnother(addAnother);
+      setShowCelebrationModal(true);
     } catch (error: any) {
       console.error('Error saving trade:', error);
+      setIsSubmitting(false);
       alert(error.message || 'Failed to save trade.');
     }
   };
 
+  const handleCelebrationClose = () => {
+    setShowCelebrationModal(false);
+    
+    // If a new milestone was unlocked, chain into Milestone Unlock Celebration!
+    if (pendingMilestoneFeature) {
+      setShowMilestoneCelebrationModal(true);
+      return;
+    }
+
+    finalizePostSaveNavigation();
+  };
+
+  const handleMilestoneCelebrationClose = (exploreFeatureId?: string) => {
+    setShowMilestoneCelebrationModal(false);
+    setPendingMilestoneFeature(null);
+
+    if (exploreFeatureId) {
+      navigate('/?exploreMilestone=' + exploreFeatureId);
+      return;
+    }
+
+    finalizePostSaveNavigation();
+  };
+
+  const finalizePostSaveNavigation = () => {
+    if (onSuccess && pendingSavedTrade) {
+      onSuccess(pendingSavedTrade);
+      return;
+    }
+
+    if (pendingAddAnother) {
+      setFormData(prev => ({
+        ...prev,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: format(new Date(), 'HH:mm'),
+        entry: '', stopLoss: '', takeProfit: '', notes: '', mistake: '', learning: '', risk: '', riskPercent: '', positionSize: '', screenshot: '', exitScreenshot: '', extraImages: [], result: '', pnl: '',
+        setupQuality: undefined, setupQualityReason: ''
+      }));
+      setMt5ScreenshotUrl('');
+      setRawSymbol('');
+      setNormalizedMarket('');
+      setSymbolMappingSource('');
+      setMt5TicketId('');
+      setMt5AnalysisId('');
+      setMt5CurrentImageId('');
+      setScreenshotNotice(null);
+      setChecklistState({});
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      navigate('/journal');
+    }
+  };
+
+  const handleViewTradeFromCelebration = (tradeId?: string) => {
+    setShowCelebrationModal(false);
+    if (pendingMilestoneFeature) {
+      setShowMilestoneCelebrationModal(true);
+      return;
+    }
+    finalizePostSaveNavigation();
+  };
+
   return (
-    <div className={cn("max-w-4xl mx-auto relative", isModal ? "pb-4 px-1" : "pb-40 md:pb-24")}>
+    <div className={cn("max-w-4xl mx-auto relative", isModal ? "pb-4 px-1" : "pb-16 md:pb-12")}>
       {isModal && onCancel ? (
         <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
           <div>
@@ -432,49 +859,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         </div>
       )}
 
-      {/* Mode Selector: Manual Trade vs Connect MT5 */}
-      <div className="mb-8 p-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-2 max-w-md shadow-xs">
-        <button
-          type="button"
-          onClick={() => setEntryMode('manual')}
-          className={cn(
-            "flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2",
-            entryMode === 'manual'
-              ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/80 dark:border-slate-700"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          )}
-        >
-          <Plus className="w-4 h-4" />
-          <span>Manual Trade</span>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => setEntryMode('mt5')}
-          className={cn(
-            "flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2",
-            entryMode === 'mt5'
-              ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/80 dark:border-slate-700"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-          )}
-        >
-          <Zap className="w-4 h-4" />
-          <span>Connect MT5</span>
-          <span className="text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.5 rounded ml-1">
-            Auto
-          </span>
-        </button>
-      </div>
-
-      {entryMode === 'mt5' ? (
-        <ConnectMT5Section
-          onSwitchToManual={() => setEntryMode('manual')}
-          onTradeImported={() => {
-            if (onSuccess) onSuccess({} as any);
-          }}
-        />
-      ) : (
-        <>
           {prefilledFromCalculator && (
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl flex items-center justify-between text-xs text-blue-900 dark:text-blue-100 animate-in fade-in duration-150 shadow-sm">
           <div className="flex items-center gap-2.5">
@@ -499,16 +884,24 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
 
       <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-8">
         
+
+
         {/* Date & Time */}
         <Card className="p-8 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">Trade Date & Time</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
-              <Label className="text-base">Date</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Date</Label>
+                <FieldSourceIndicator source={fieldSources.date} />
+              </div>
               <Input type="date" name="date" value={formData.date} onChange={handleInputChange} required />
             </div>
             <div className="space-y-3">
-              <Label className="text-base">Time</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Time</Label>
+                <FieldSourceIndicator source={fieldSources.time} />
+              </div>
               <Input type="time" name="time" value={formData.time} onChange={handleInputChange} />
             </div>
           </div>
@@ -518,17 +911,37 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
         <Card className="p-8 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-3">
-              <MarketSelector
-                value={formData.market}
-                onChange={(m) => setFormData(prev => ({ ...prev, market: m as any }))}
-                userId={user?.uid}
-                required
-                label="Market"
-              />
+              <div className="flex items-center justify-between">
+                <MarketSelector
+                  value={formData.market}
+                  onChange={(m) => {
+                    setFormData(prev => ({ ...prev, market: m as any }));
+                    if (fieldSources.market) {
+                      setFieldSources(prev => {
+                        const next = { ...prev };
+                        delete next.market;
+                        return next;
+                      });
+                    }
+                  }}
+                  userId={user?.uid}
+                  required
+                  label="Market"
+                />
+              </div>
+              <FieldSourceIndicator source={fieldSources.market} />
+              {rawSymbol && rawSymbol !== formData.market && (
+                <p className="text-[11px] text-slate-400 font-mono">
+                  Broker symbol: <strong className="text-slate-600 dark:text-slate-300">{rawSymbol}</strong> (source: {symbolMappingSource || 'normalized'})
+                </p>
+              )}
             </div>
             
             <div className="space-y-3">
-              <Label className="text-base">Direction</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Direction</Label>
+                <FieldSourceIndicator source={fieldSources.direction} />
+              </div>
               <div className="flex gap-4">
                 <button
                   type="button"
@@ -564,25 +977,142 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
           <Card className="p-8 shadow-sm lg:col-span-2">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">Execution Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              
+              {/* Entry Price with Smart Historical Auto-Fill */}
               <div className="space-y-2">
-                <Label>Entry Price</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Entry Price</Label>
+                  <FieldSourceIndicator source={fieldSources.entry} />
+                </div>
                 <Input name="entry" type="number" step="any" placeholder="e.g. 2458.20" required value={formData.entry} onChange={handleInputChange} />
+
+                {/* 7, 8, 9. Historical price suggestion UX */}
+                {isFetchingHistoricalPrice && (
+                  <p className="text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1.5 animate-pulse pt-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span>Fetching historical price...</span>
+                  </p>
+                )}
+
+                {historicalQuote && (
+                  <div className="p-2.5 rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/30 text-xs space-y-1.5 mt-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        {historicalQuote.isMarketClosed 
+                          ? 'Market closed at selected time' 
+                          : (historicalQuote.exactMatch ? 'Suggested from historical market data' : 'Nearest available market price')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleManualFetchHistoricalPrice}
+                        className="p-1 text-slate-400 hover:text-blue-600 rounded-md transition-colors"
+                        title="Re-fetch price"
+                      >
+                        <RefreshCw className={cn("w-3 h-3", isFetchingHistoricalPrice && "animate-spin")} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300">
+                      <div>
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs">
+                          {historicalQuote.suggestedEntry}
+                        </span>
+                        {historicalQuote.bid && historicalQuote.ask && (
+                          <span className="text-slate-400 ml-1.5 text-[10px]">
+                            (Bid: {historicalQuote.bid} / Ask: {historicalQuote.ask})
+                          </span>
+                        )}
+                        <span className="text-slate-400 block text-[10px] truncate max-w-[200px]">
+                          {historicalQuote.source}
+                        </span>
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (historicalQuote.suggestedEntry) {
+                            setFormData(prev => ({ ...prev, entry: String(historicalQuote.suggestedEntry) }));
+                            setFieldSources(prev => ({ ...prev, entry: 'historical_quote' }));
+                          }
+                        }}
+                        className="h-6 px-2 text-[10px] font-bold text-blue-600 border-blue-300 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60"
+                      >
+                        Apply Price
+                      </Button>
+                    </div>
+
+                    {!historicalQuote.exactMatch && historicalQuote.offsetSeconds > 0 && (
+                      <div className="text-[10px] text-amber-700 dark:text-amber-400 pt-1 border-t border-blue-200/50 dark:border-blue-900/40">
+                        Requested: {formData.time || '12:00'} • Price timestamp: {historicalQuote.formattedTimeUsed?.slice(11, 16) || 'Nearest'} • Diff: {historicalQuote.offsetSeconds}s
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {historicalPriceError && !isFetchingHistoricalPrice && !historicalQuote && (
+                  <p className="text-[10px] text-slate-400 pt-0.5">{historicalPriceError}</p>
+                )}
               </div>
+
+              {/* Lot / Position Size */}
               <div className="space-y-2">
-                <Label>Lot / Position Size</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Lot / Position Size</Label>
+                  <FieldSourceIndicator source={fieldSources.positionSize} />
+                </div>
                 <Input name="positionSize" type="number" step="any" placeholder="e.g. 0.50" required value={formData.positionSize} onChange={handleInputChange} />
               </div>
+
+              {/* Stop Loss */}
               <div className="space-y-2">
-                <Label>Stop Loss</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Stop Loss</Label>
+                  <FieldSourceIndicator source={fieldSources.stopLoss} />
+                </div>
                 <Input name="stopLoss" type="number" step="any" placeholder="e.g. 2453.20" required value={formData.stopLoss} onChange={handleInputChange} />
               </div>
+
+              {/* Take Profit */}
               <div className="space-y-2">
-                <Label>Take Profit</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Take Profit</Label>
+                  <FieldSourceIndicator source={fieldSources.takeProfit} />
+                </div>
                 <Input name="takeProfit" type="number" step="any" placeholder="e.g. 2470.20" value={formData.takeProfit} onChange={handleInputChange} />
               </div>
+
+              {/* 10. Smart Risk Amount (USD) Auto-Calculation from Instrument Specs */}
               <div className="space-y-2 sm:col-span-2">
-                <Label>Risk Amount (USD)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Risk Amount (USD)</Label>
+                  <FieldSourceIndicator source={fieldSources.risk} />
+                </div>
                 <Input name="risk" type="number" step="any" placeholder="e.g. 250" icon={<span className="text-sm font-medium">$</span>} value={formData.risk} onChange={handleInputChange} />
+                
+                {/* Missing or detected specification notice */}
+                {riskSpecNotice && (
+                  <div className="p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/30 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2 mt-1">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <span className="font-semibold block">{riskSpecNotice}</span>
+                      <span className="text-[11px] text-amber-700/80 dark:text-amber-400/80">
+                        Enter your calculated risk amount manually or select a registered market instrument.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {specDetails && (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
+                    <span>
+                      Spec: <strong className="text-slate-700 dark:text-slate-300">{specDetails.name}</strong> • Contract: {specDetails.contractSize.toLocaleString()} {specDetails.unitName}
+                    </span>
+                    <span>Point Value: <strong>${specDetails.pointValue}</strong></span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -597,23 +1127,57 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
             )}
           </Card>
 
-          <Card className="p-6 shadow-sm bg-slate-900/90 dark:bg-slate-900/70 border-slate-700/50 backdrop-blur-md text-white flex flex-col justify-center">
-            <h3 className="text-sm font-medium text-slate-400 mb-6 uppercase tracking-wider">Auto Calculations</h3>
-            <div className="space-y-6">
-              <div>
-                <p className="text-slate-400 text-sm mb-1">Risk : Reward</p>
-                <div className="text-3xl font-light">
-                  1 : <span className="font-bold text-white">{calc.rrRatio > 0 ? calc.rrRatio : '-'}</span>
-                </div>
+          {/* 12. Auto Calculations Card (Live, comprehensive metrics) */}
+          <Card className="p-6 shadow-sm bg-slate-900/95 dark:bg-slate-900/80 border-slate-700/50 backdrop-blur-md text-white flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-2">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live Calculations</h3>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                  Dynamic
+                </span>
               </div>
-              <div className="pt-4 border-t border-slate-800 grid grid-cols-2 gap-4">
+
+              <div className="space-y-4">
                 <div>
-                  <p className="text-slate-400 text-sm mb-1">Pot. Loss</p>
-                  <p className="text-lg font-semibold text-rose-400">{calc.potentialLoss > 0 ? formatCurrency(calc.potentialLoss) : '-'}</p>
+                  <p className="text-slate-400 text-xs mb-0.5">Risk : Reward</p>
+                  <div className="text-2xl font-light">
+                    1 : <span className="font-bold text-white">{calc.rrRatio > 0 ? calc.rrRatio : '-'}</span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-slate-400 text-sm mb-1">Pot. Profit</p>
-                  <p className="text-lg font-semibold text-emerald-400">{calc.potentialProfit > 0 ? formatCurrency(calc.potentialProfit) : '-'}</p>
+
+                <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-slate-400 text-xs mb-0.5">Pot. Loss</p>
+                    <p className="text-base font-semibold text-rose-400">{calc.potentialLoss > 0 ? formatCurrency(calc.potentialLoss) : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs mb-0.5">Pot. Profit</p>
+                    <p className="text-base font-semibold text-emerald-400">{calc.potentialProfit > 0 ? formatCurrency(calc.potentialProfit) : '-'}</p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-slate-400 mb-0.5">Stop Distance</p>
+                    <p className="font-mono font-medium text-slate-200">{stopDistance > 0 ? `${stopDistance} pts` : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 mb-0.5">Target Distance</p>
+                    <p className="font-mono font-medium text-slate-200">{targetDistance > 0 ? `${targetDistance} pts` : '-'}</p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-slate-400 mb-0.5">Position Size</p>
+                    <p className="font-mono font-medium text-slate-200">{formData.positionSize ? `${formData.positionSize} lots` : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 mb-0.5">Realized R</p>
+                    <p className={cn("font-mono font-bold", realizedRMultiple !== null && realizedRMultiple > 0 ? "text-emerald-400" : (realizedRMultiple !== null && realizedRMultiple < 0 ? "text-rose-400" : "text-slate-400"))}>
+                      {realizedRMultiple !== null ? `${realizedRMultiple > 0 ? '+' : ''}${realizedRMultiple}R` : '-'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -865,12 +1429,35 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
             {formData.screenshot ? (
               <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 group bg-slate-950/5 dark:bg-slate-950">
                 <img src={formData.screenshot} alt="Entry Screenshot" className="w-full h-auto object-contain max-h-[300px] mx-auto" />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                  <Label htmlFor="entry-screenshot-upload" className="cursor-pointer bg-white text-slate-900 px-3.5 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-100 shadow-md">
-                    Replace
+                <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-wrap items-center justify-center gap-2.5 p-4 z-10">
+                  <Label htmlFor="entry-screenshot-upload" className="cursor-pointer bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm flex items-center gap-1.5 transition-transform hover:scale-105 border border-slate-200 dark:border-slate-700">
+                    <RefreshCw className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Replace</span>
                   </Label>
-                  <button type="button" onClick={() => handleRemoveScreenshot('screenshot')} className="bg-red-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium hover:bg-red-600 shadow-md">
-                    Remove
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (formData.screenshot) {
+                        setFormData(prev => ({
+                          ...prev,
+                          screenshot: '',
+                          extraImages: Array.from(new Set([prev.screenshot, ...(prev.extraImages || [])]))
+                        }));
+                      }
+                    }} 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-transform hover:scale-105"
+                    title="Move to Extra Images / Trade Receipts"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Move to Extra</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleRemoveScreenshot('screenshot')} 
+                    className="bg-rose-500/90 hover:bg-rose-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-transform hover:scale-105"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Remove</span>
                   </button>
                 </div>
                 <input 
@@ -996,16 +1583,138 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
           </Card>
         </div>
 
+        {/* 3rd Attachment: Extra Images & MT5 Trade Receipts */}
+        {(formData.extraImages.length > 0 || mt5ScreenshotUrl) && (
+          <Card className="p-6 sm:p-7 shadow-sm border-indigo-200/70 dark:border-indigo-900/50 bg-gradient-to-br from-indigo-50/20 via-white to-indigo-50/10 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/20 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-500" />
+                  <span>Extra Images & Trade Receipts</span>
+                  <span className="text-xs font-mono font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100/80 dark:bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                    {Array.from(new Set([...(mt5ScreenshotUrl ? [mt5ScreenshotUrl] : []), ...formData.extraImages])).length} Attached
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  MT5 trade screenshots, broker receipts, and higher-timeframe context images (kept separate from your chart entry screenshot)
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <Label htmlFor="extra-screenshot-upload" className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 shadow-2xs">
+                  <Plus className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Add Extra Image</span>
+                </Label>
+                <input
+                  id="extra-screenshot-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const compressed = await compressImageToDataUrl(file, 1600, 1600, 0.88);
+                        setFormData(prev => ({
+                          ...prev,
+                          extraImages: [...(prev.extraImages || []), compressed]
+                        }));
+                      } catch {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData(prev => ({
+                            ...prev,
+                            extraImages: [...(prev.extraImages || []), reader.result as string]
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {Array.from(new Set([...(mt5ScreenshotUrl ? [mt5ScreenshotUrl] : []), ...formData.extraImages])).map((imgUrl, idx) => {
+                const isMT5Receipt = imgUrl === mt5ScreenshotUrl;
+                return (
+                  <div key={idx} className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-950/5 dark:bg-slate-950 group aspect-video shadow-2xs">
+                    <img src={imgUrl} alt={`Extra Image ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute top-1.5 left-1.5">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider backdrop-blur-xs",
+                        isMT5Receipt ? "bg-indigo-600/90 text-white" : "bg-slate-900/80 text-white"
+                      )}>
+                        {isMT5Receipt ? 'MT5 Receipt' : `Extra Image #${idx + 1}`}
+                      </span>
+                    </div>
+                    <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            extraImages: prev.extraImages.filter(u => u !== imgUrl)
+                          }));
+                          if (isMT5Receipt) {
+                            setMt5ScreenshotUrl('');
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors text-xs font-semibold flex items-center gap-1 shadow-sm"
+                        title="Remove extra image"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
         {/* Notes & Learning */}
         <Card className="p-8 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">Review & Result</h3>
-          <div className="space-y-8">
+          <div className="space-y-6">
+            
+            {/* Quick Result Mode (1R Shortcut) toggle */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-200/80 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900 dark:text-amber-200">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Quick Result Mode (1R Shortcut)</span>
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-200/60 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                    Shortcut
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  When active: Win sets suggested P&L to +1R (+${parseFloat(formData.risk) || calc.potentialLoss}), Loss sets -1R (-${parseFloat(formData.risk) || calc.potentialLoss}), Break Even sets $0. Editable shortcut.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickResultMode(prev => !prev)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 border",
+                  quickResultMode
+                    ? "bg-amber-500 text-white border-amber-600 shadow-xs"
+                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+                )}
+              >
+                {quickResultMode ? '1R Mode ON' : '1R Mode OFF'}
+              </button>
+            </div>
+
             <div className="space-y-3">
               <Label className="text-base">Trade Result (Optional)</Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'WIN' ? '' : 'WIN' }))}
+                  onClick={() => handleResultSelect('WIN')}
                   className={cn(
                     "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'WIN' 
@@ -1017,7 +1726,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'LOSS' ? '' : 'LOSS' }))}
+                  onClick={() => handleResultSelect('LOSS')}
                   className={cn(
                     "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'LOSS' 
@@ -1029,7 +1738,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'BREAK EVEN' ? '' : 'BREAK EVEN', pnl: '0' }))}
+                  onClick={() => handleResultSelect('BREAK EVEN')}
                   className={cn(
                     "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'BREAK EVEN' 
@@ -1041,7 +1750,7 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'PENDING' ? '' : 'PENDING' }))}
+                  onClick={() => handleResultSelect('PENDING')}
                   className={cn(
                     "h-11 rounded-xl font-bold text-sm transition-all border",
                     formData.result === 'PENDING' 
@@ -1052,11 +1761,31 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   PENDING
                 </button>
               </div>
+
+              {formData.takeProfit && (
+                <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={useTpAsExit}
+                    onChange={(e) => {
+                      setUseTpAsExit(e.target.checked);
+                      if (e.target.checked && formData.result === 'WIN') {
+                        handleResultSelect('WIN');
+                      }
+                    }}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                  <span>Use Take Profit ({formData.takeProfit}) as target exit price when calculating suggested WIN P&L</span>
+                </label>
+              )}
             </div>
 
             {(formData.result === 'WIN' || formData.result === 'LOSS') && (
               <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                <Label>Realized P&L (USD)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Realized P&L (USD)</Label>
+                  <FieldSourceIndicator source={fieldSources.pnl} />
+                </div>
                 <Input 
                   name="pnl" 
                   type="number" 
@@ -1066,7 +1795,16 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
                   onChange={handleInputChange} 
                   icon={<span className="text-sm font-medium">$</span>}
                 />
-                <p className="text-xs text-slate-500">Leave blank to use calculated auto-P&L.</p>
+                
+                {resultPnlNotice && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1.5 pt-0.5">
+                    <Info className="w-3.5 h-3.5 shrink-0" />
+                    <span>{resultPnlNotice}</span>
+                  </p>
+                )}
+                {!resultPnlNotice && (
+                  <p className="text-xs text-slate-500">Leave blank to use calculated auto-P&L.</p>
+                )}
               </div>
             )}
             {formData.result === 'PENDING' && (
@@ -1194,26 +1932,41 @@ export default function AddTrade({ onSuccess, onCancel, isModal }: AddTradeProps
             </Button>
           </div>
         ) : (
-          <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-            <Button type="button" variant="outline" onClick={(e) => handleSubmit(e, true)} className="w-full sm:w-auto">
+          <div className="mt-8 pt-6 pb-6 flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 border-t border-slate-200/80 dark:border-white/[0.08]">
+            <Button type="button" variant="outline" onClick={(e) => handleSubmit(e, true)} className="w-full sm:w-auto min-h-[44px]">
               Save & Add Another
             </Button>
-            <Button type="submit" size="lg" disabled={isSubmitting || !formData.market || !formData.entry} className="w-full sm:w-auto min-w-[160px]">
+            <Button type="submit" size="lg" disabled={isSubmitting || !formData.market || !formData.entry} className="w-full sm:w-auto min-w-[160px] min-h-[44px]">
               Save Trade
             </Button>
           </div>
         )}
       </form>
-      </>
-      )}
 
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed bottom-24 right-8 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
-          <CheckCircle2 className="w-5 h-5 text-green-400" />
+        <div className="fixed bottom-24 right-4 sm:right-8 mb-[env(safe-area-inset-bottom,0px)] bg-slate-900 text-white px-5 sm:px-6 py-3.5 sm:py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 z-40 max-w-[calc(100vw-2rem)]">
+          <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
           <span className="font-medium text-sm">Trade saved successfully.</span>
         </div>
       )}
+
+      {/* Trade Save Celebration Modal */}
+      <TradeSaveCelebrationModal
+        isOpen={showCelebrationModal}
+        trade={celebrationData}
+        onClose={handleCelebrationClose}
+        onViewTrade={handleViewTradeFromCelebration}
+      />
+
+      {/* Milestone Unlock Celebration Modal */}
+      <MilestoneUnlockCelebrationModal
+        isOpen={showMilestoneCelebrationModal}
+        feature={pendingMilestoneFeature}
+        tradeCount={milestoneTradeCount}
+        onClose={() => handleMilestoneCelebrationClose()}
+        onExplore={(featId) => handleMilestoneCelebrationClose(featId)}
+      />
     </div>
   );
 }

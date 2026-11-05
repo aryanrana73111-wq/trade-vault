@@ -153,8 +153,8 @@ export function CountryAndCentralBankContext({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
-          {relevantMarkets.map((m) => (
-            <div key={m.symbol} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200 dark:border-slate-800 text-xs">
+          {relevantMarkets.map((m, idx) => (
+            <div key={`rel-mkt-${m.symbol}-${idx}`} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200 dark:border-slate-800 text-xs">
               <span className="font-bold font-mono text-slate-900 dark:text-white block">
                 {m.symbol}
               </span>

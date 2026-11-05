@@ -1,3 +1,18 @@
+export interface EconomicIndicatorData {
+  eventName: string;
+  currency?: string;
+  countryCode?: string;
+  previous: string | number;
+  forecast: string | number;
+  actual?: string | number | null;
+  unit?: string;
+  releaseTime: string; // ISO 8601 string
+  status: 'RELEASED' | 'NOT_RELEASED';
+  sentiment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  impact?: 'HIGH' | 'MEDIUM' | 'LOW';
+  consensusNote?: string;
+}
+
 export interface NormalizedNewsArticle {
   id: string;
   headline: string;
@@ -13,6 +28,8 @@ export interface NormalizedNewsArticle {
   relatedMarkets?: string[];
   tags?: string[];
   isDevelopingStory?: boolean;
+  impact?: 'HIGH' | 'MEDIUM' | 'LOW';
+  indicatorData?: EconomicIndicatorData;
   
   // Market Intelligence Context (Objective factual context, NO predictions)
   intelligence?: {
@@ -29,6 +46,7 @@ export interface NewsFilterParams {
   date: string; // YYYY-MM-DD
   category?: string;
   market?: string;
+  impact?: 'ALL' | 'HIGH' | 'MEDIUM' | 'LOW';
   searchQuery?: string;
   page?: number;
   limit?: number;

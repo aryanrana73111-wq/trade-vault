@@ -50,6 +50,12 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // MT5 Canonical Account Identity Index
+    match /mt5_accounts/{accountId} {
+      allow read: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
     // Isolated User Data
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Arena, ArenaMember, CompetitionTrade } from '@/types';
 import { X, Users, Trophy, Shield, TrendingUp, AlertCircle, Award, Check, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { AppPortalModal } from '@/components/common/AppPortalModal';
 
 interface CompareTradersModalProps {
   arena: Arena;
@@ -170,33 +171,26 @@ export function CompareTradersModal({
   ] : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 my-auto">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold flex-shrink-0">
-              <Users className="w-5 h-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
-                Head-to-Head Compare
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                Evidence-based performance comparison in {arena.name}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <AppPortalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Head-to-Head Compare"
+      subtitle={`Evidence-based performance comparison in ${arena.name}`}
+      icon={
+        <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold flex-shrink-0">
+          <Users className="w-5 h-5" />
         </div>
-
-        <div className="p-4 sm:p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+      }
+      footer={
+        <div className="flex justify-end">
+          <Button onClick={onClose} variant="outline" className="h-10 px-5 text-xs font-semibold">
+            Close
+          </Button>
+        </div>
+      }
+      maxWidth="max-w-4xl"
+    >
+      <div className="space-y-5">
           
           {/* Trader Selectors */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
@@ -328,15 +322,7 @@ export function CompareTradersModal({
               Select two traders to view head-to-head metrics.
             </div>
           )}
-
         </div>
-
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-end pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
-          <Button onClick={onClose} variant="outline" className="h-11 px-6 text-xs font-semibold">
-            Close
-          </Button>
-        </div>
-      </div>
-    </div>
+    </AppPortalModal>
   );
 }

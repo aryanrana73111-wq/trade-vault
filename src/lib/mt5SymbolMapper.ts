@@ -101,8 +101,14 @@ export function mapMT5SymbolToMarket(rawSymbol: string, customMappings?: Record<
     return { market: CANONICAL_MAP[upper], isMapped: true, cleanSymbol: upper };
   }
 
+  // 2b. Check with trailing punctuation stripped (e.g. "XAUUSD." or "EURUSD_")
+  const strippedPunctuation = upper.replace(/[^A-Z0-9]+$/g, '');
+  if (CANONICAL_MAP[strippedPunctuation]) {
+    return { market: CANONICAL_MAP[strippedPunctuation], isMapped: true, cleanSymbol: strippedPunctuation };
+  }
+
   // 3. Strip broker prefixes/suffixes and check again
-  let cleaned = upper;
+  let cleaned = strippedPunctuation;
 
   // Remove common broker dot or underscore suffixes (e.g., "EURUSD.r", "XAUUSDm")
   for (const suffix of BROKER_SUFFIXES) {
@@ -126,7 +132,7 @@ export function mapMT5SymbolToMarket(rawSymbol: string, customMappings?: Record<
 
   // 5. Unmapped symbol — return explicit unmapped status
   return {
-    market: trimmed,
+    market: 'Unmapped Symbol',
     isMapped: false,
     cleanSymbol: cleaned
   };

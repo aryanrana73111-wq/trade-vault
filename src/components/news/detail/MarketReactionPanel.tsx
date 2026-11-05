@@ -72,7 +72,7 @@ export function MarketReactionPanel({ windows, eventName }: MarketReactionPanelP
           const active = selectedAsset === assetKey;
           return (
             <button
-              key={assetKey}
+              key={`asset-tab-${assetKey}`}
               type="button"
               onClick={() => setSelectedAsset(assetKey)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
@@ -159,7 +159,7 @@ export function MarketReactionPanel({ windows, eventName }: MarketReactionPanelP
               const isDown = pct < 0;
 
               return (
-                <div key={assetKey} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                <div key={`norm-card-${assetKey}`} className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
                   <span className="text-[10px] font-sans font-bold text-slate-500 dark:text-slate-400 uppercase truncate mb-1">
                     {info.name.split(' ')[0]}
                   </span>

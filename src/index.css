@@ -36,6 +36,11 @@
   --glass-dropdown-border: rgba(226, 232, 240, 0.9);
   --glass-nav-bg: rgba(255, 255, 255, 0.82);
   --glass-nav-border: rgba(226, 232, 240, 0.8);
+
+  /* Android Mobile Layout Tokens */
+  --mobile-bottom-nav-height: 58px;
+  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-content-bottom-clearance: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-bottom) + 1.5rem);
 }
 
 .dark {
@@ -69,10 +74,46 @@
   --glass-dropdown-border: rgba(255, 255, 255, 0.12);
   --glass-nav-bg: rgba(15, 23, 42, 0.82);
   --glass-nav-border: rgba(255, 255, 255, 0.08);
+
+  /* Android Mobile Layout Tokens */
+  --mobile-bottom-nav-height: 58px;
+  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-content-bottom-clearance: calc(var(--mobile-bottom-nav-height) + var(--mobile-safe-bottom) + 1.5rem);
+}
+
+html {
+  height: 100%;
+  min-height: 100dvh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(4.5rem + env(safe-area-inset-top, 0px));
+  scroll-padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 2rem);
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
+  @apply bg-slate-950 text-slate-100 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
+  background-color: #020617;
+  color: #f8fafc;
+  height: 100%;
+  min-height: 100dvh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-top: calc(4.5rem + env(safe-area-inset-top, 0px));
+  scroll-padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 2rem);
+}
+
+#root {
+  height: 100%;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 
@@ -199,11 +240,13 @@ select:-webkit-autofill:focus {
 
   /* Utility to hide scrollbars while preserving scroll functionality */
   .no-scrollbar::-webkit-scrollbar {
-    display: none;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
   .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
   }
 
   /* Subtle Glassmorphism Utility Classes */
@@ -301,4 +344,51 @@ select:-webkit-autofill:focus {
     animation: none !important;
     transform: none !important;
   }
+}
+
+
+/* Mobile-friendly theme and dark canvas polish */
+.dark body {
+  background-color: #000000 !important;
+}
+
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* 
+  Mobile-First Android Modal & Scroll Container System:
+  Ensures modal overlays sit strictly above headers and bottom nav (z-index 9999),
+  prevents background scroll chaining, and guarantees touch momentum.
+*/
+.mobile-modal-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mobile-scroll-container {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+.mobile-touch-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+}
+
+/* Main content scrolling padding for mobile bottom bar clearance */
+.main-mobile-clearance {
+  padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 2rem);
+  scroll-padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 2rem);
 }

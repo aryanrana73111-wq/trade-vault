@@ -1,17 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import fs from 'fs';
-import path from 'path';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
-
-// Read Firebase configuration
-const cfgPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-
-const adminApp = getApps().length === 0 ? initializeApp({ projectId: cfg.projectId }) : getApps()[0];
-const adminAuth = getAuth(adminApp);
-const adminDb = getFirestore(adminApp, cfg.firestoreDatabaseId);
+import { adminAuth, adminDb, firebaseAppConfig as cfg } from './firebaseAdmin';
 
 // Bootstrapped Administrator Email (from system metadata & runtime environment)
 export const BOOTSTRAP_ADMIN_EMAIL = 'aryanrana73111@gmail.com';

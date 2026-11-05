@@ -56,7 +56,7 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
     }
   };
 
-  const getSeverityBadge = (severity: 'critical' | 'warning' | 'notice') => {
+  const getSeverityBadge = (severity: 'critical' | 'warning' | 'notice' | 'positive') => {
     switch (severity) {
       case 'critical':
         return (
@@ -70,7 +70,14 @@ export const AttentionPanel: React.FC<AttentionPanelProps> = ({
             <AlertTriangle className="w-3 h-3" /> Cautionary Observation
           </span>
         );
+      case 'positive':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <CheckCircle2 className="w-3 h-3" /> Positive Pattern
+          </span>
+        );
       case 'notice':
+      default:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
             <Info className="w-3 h-3" /> Behavioral Notice

@@ -105,12 +105,19 @@ export function SlidableNewsTabs({
     };
     el.addEventListener('wheel', handleWheelNative, { passive: false });
 
-    const observer = new ResizeObserver(() => updateScrollState());
+    let rAFId: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (rAFId !== null) cancelAnimationFrame(rAFId);
+      rAFId = requestAnimationFrame(() => {
+        updateScrollState();
+      });
+    });
     observer.observe(el);
 
     return () => {
       el.removeEventListener('scroll', handleScroll);
       el.removeEventListener('wheel', handleWheelNative);
+      if (rAFId !== null) cancelAnimationFrame(rAFId);
       observer.disconnect();
     };
   }, [updateScrollState]);

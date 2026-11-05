@@ -254,8 +254,8 @@ export default function Strategies() {
                       <p className="text-slate-600 dark:text-slate-400 text-sm mb-6 line-clamp-2">{strategy.shortDescription}</p>
                       
                       <div className="flex flex-wrap gap-2 mb-6">
-                        {strategy.markets.slice(0, 3).map(m => (
-                          <span key={m} className="px-2 py-1 bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-md">{m}</span>
+                        {strategy.markets.slice(0, 3).map((m, idx) => (
+                          <span key={`strat-mkt-${m}-${idx}`} className="px-2 py-1 bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-md">{m}</span>
                         ))}
                         {strategy.markets.length > 3 && (
                           <span className="px-2 py-1 bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-md">+{strategy.markets.length - 3}</span>

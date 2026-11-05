@@ -11,6 +11,7 @@ export interface UserSettings {
   };
   accounts: TradingAccount[];
   activeAccountId: string;
+  defaultRiskPercent?: number;
   risk: {
     defaultRisk: number;
     maxDailyRisk: number;
@@ -151,7 +152,7 @@ const DEFAULT_SETTINGS: UserSettings = {
     defaultChart: 'Equity Curve',
   },
   appearance: {
-    theme: 'system',
+    theme: 'dark',
     accent: 'blue',
     density: 'comfortable',
   },
@@ -195,12 +196,31 @@ const DEFAULT_SETTINGS: UserSettings = {
 };
 
 export function getSettings(): UserSettings {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   const saved = localStorage.getItem('tradevault_settings');
   if (saved) {
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          profile: { ...DEFAULT_SETTINGS.profile, ...(parsed.profile || {}) },
+          accounts: Array.isArray(parsed.accounts) && parsed.accounts.length > 0 ? parsed.accounts : DEFAULT_SETTINGS.accounts,
+          risk: { ...DEFAULT_SETTINGS.risk, ...(parsed.risk || {}) },
+          psychology: { ...DEFAULT_SETTINGS.psychology, ...(parsed.psychology || {}) },
+          entryPreferences: { ...DEFAULT_SETTINGS.entryPreferences, ...(parsed.entryPreferences || {}) },
+          analytics: { ...DEFAULT_SETTINGS.analytics, ...(parsed.analytics || {}) },
+          appearance: { ...DEFAULT_SETTINGS.appearance, ...(parsed.appearance || {}) },
+          dashboard: { ...DEFAULT_SETTINGS.dashboard, ...(parsed.dashboard || {}) },
+          notifications: { ...DEFAULT_SETTINGS.notifications, ...(parsed.notifications || {}) },
+          schedule: { ...DEFAULT_SETTINGS.schedule, ...(parsed.schedule || {}) },
+          strategyDefaults: { ...DEFAULT_SETTINGS.strategyDefaults, ...(parsed.strategyDefaults || {}) },
+          labs: { ...DEFAULT_SETTINGS.labs, ...(parsed.labs || {}) },
+        };
+      }
     } catch (e) {
-      console.error('Failed to parse settings', e);
+      console.error('Failed to parse settings from localStorage', e);
     }
   }
   return DEFAULT_SETTINGS;

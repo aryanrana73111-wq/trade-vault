@@ -13,7 +13,6 @@ import {
   Check, 
   X, 
   ArrowRight, 
-  BarChart3, 
   Calculator, 
   ShieldAlert, 
   Trash2, 
@@ -26,7 +25,9 @@ import {
   Edit3,
   Eye,
   Info,
-  Zap
+  Zap,
+  Camera,
+  LineChart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData } from '@/contexts/DataContext';
@@ -146,11 +147,11 @@ export default function Journal() {
 
     let matchesAccount = true;
     if (filterAccount === 'MANUAL_ONLY') {
-      matchesAccount = t.tradeSource !== 'mt5';
+      matchesAccount = t.tradeSource !== 'mt5' && t.tradeSource !== 'competition_mt5' && !t.mt5TicketId;
     } else if (filterAccount === 'MT5_ALL') {
-      matchesAccount = t.tradeSource === 'mt5';
+      matchesAccount = t.tradeSource === 'mt5' || t.tradeSource === 'competition_mt5' || Boolean(t.mt5TicketId);
     } else if (filterAccount !== 'ALL') {
-      matchesAccount = t.tradingAccountId === filterAccount || t.accountId === filterAccount;
+      matchesAccount = t.tradingAccountId === filterAccount || t.mt5AccountId === filterAccount || t.accountId === filterAccount;
     }
 
     return matchesSearch && matchesDirection && matchesSetupQuality && matchesDataStatus && matchesMacro && matchesAccount;
@@ -797,6 +798,29 @@ const TradeCard: React.FC<TradeCardProps> = ({
                   <span>MT5</span>
                 </span>
               )}
+              {(trade.tradeSource === 'mt5_screenshot' || trade.mt5ScreenshotUrl) && (
+                <span 
+                  className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1"
+                  title={`Imported from MT5 Screenshot${trade.rawSymbol ? ` (${trade.rawSymbol})` : ''}`}
+                >
+                  <Camera className="w-2.5 h-2.5" />
+                  <span>MT5 Vision</span>
+                </span>
+              )}
+              {(trade.tradeSource === 'chart' || trade.chartContext) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/charts?symbol=${encodeURIComponent(trade.market)}&tradeId=${trade.id}`);
+                  }}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/60 flex items-center gap-1 hover:bg-indigo-200 dark:hover:bg-indigo-900/60 transition-colors"
+                  title="Chart Trade: Click to open in Charts"
+                >
+                  <LineChart className="w-2.5 h-2.5" />
+                  <span>Chart Trade</span>
+                </button>
+              )}
               {(trade.newsEventName || trade.newsEventId) && (
                 <span 
                   className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-900/60 flex items-center gap-1"
@@ -947,6 +971,19 @@ const TradeCard: React.FC<TradeCardProps> = ({
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/charts?symbol=${encodeURIComponent(trade.market)}&tradeId=${trade.id}`);
+                }}
+                className="gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                title="Open this trade in the interactive chart"
+              >
+                <LineChart className="w-3.5 h-3.5" />
+                <span>Open in Charts</span>
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -1112,18 +1149,6 @@ const TradeCard: React.FC<TradeCardProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate('/analytics');
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  <span>View in Analytics</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={(e) => {

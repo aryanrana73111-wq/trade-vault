@@ -46,10 +46,10 @@ export default function Login({ defaultSignUp = false }: LoginProps) {
   const [linkingPassword, setLinkingPassword] = useState(false);
   const [videoError, setVideoError] = useState(false);
 
-  // If already authenticated, redirect to Welcome Home immediately
+  // If already authenticated, redirect to workspace dashboard immediately
   useEffect(() => {
     if (user) {
-      navigate('/home', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
 
@@ -94,13 +94,13 @@ export default function Login({ defaultSignUp = false }: LoginProps) {
         } catch (vErr) {
           console.warn('Post-signup verification email note:', vErr);
         }
-        navigate('/home');
+        navigate('/dashboard');
       } catch (err: any) {
         if (err.code === 'auth/email-already-in-use') {
           // Account already exists. Attempt direct sign in with the provided password!
           try {
             await signInWithEmailAndPassword(auth, cleanEmail, password);
-            navigate('/home');
+            navigate('/dashboard');
             return;
           } catch (signInErr: any) {
             // Check if created with Google
@@ -167,7 +167,7 @@ export default function Login({ defaultSignUp = false }: LoginProps) {
             });
           } catch {}
         }
-        navigate('/home');
+        navigate('/dashboard');
       } catch (err: any) {
         // Check if user signed up via Google
         let isGoogleAccount = false;
@@ -230,7 +230,7 @@ export default function Login({ defaultSignUp = false }: LoginProps) {
           });
         } catch {}
       }
-      navigate('/home');
+      navigate('/dashboard');
     } catch (err: any) {
       setError(getFriendlyAuthErrorMessage(err));
     } finally {
@@ -267,13 +267,13 @@ export default function Login({ defaultSignUp = false }: LoginProps) {
         });
       } catch {}
 
-      navigate('/home');
+      navigate('/dashboard');
     } catch (err: any) {
       if (err.code === 'auth/credential-already-in-use') {
         setMessage('This password credential is now linked! You can sign in with your email and password.');
-        navigate('/home');
+        navigate('/dashboard');
       } else if (err.code === 'auth/provider-already-linked') {
-        navigate('/home');
+        navigate('/dashboard');
       } else {
         setError(getFriendlyAuthErrorMessage(err));
       }

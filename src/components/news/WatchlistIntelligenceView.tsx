@@ -98,9 +98,9 @@ export const WatchlistIntelligenceView: React.FC<WatchlistIntelligenceViewProps>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {userTradedMarkets.map(market => (
+          {userTradedMarkets.map((market, idx) => (
             <div
-              key={market}
+              key={`watchlist-mkt-${market}-${idx}`}
               className="p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-primary-500 dark:hover:border-primary-500 transition-colors flex items-center justify-between group cursor-pointer"
               onClick={() => onFilterNewsByAsset(market)}
             >

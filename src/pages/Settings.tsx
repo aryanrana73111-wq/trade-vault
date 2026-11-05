@@ -4,7 +4,7 @@ import {
   User, CreditCard, ShieldAlert, LogIn, BarChart2, 
   Palette, LayoutDashboard, Bell, Clock, Target, Database, 
   Lock, Zap, Search, Plus, BookOpen, Trash2,
-  Eye, EyeOff, CheckCircle2, ShieldCheck, KeyRound, AlertCircle
+  Eye, EyeOff, CheckCircle2, ShieldCheck, KeyRound, AlertCircle, LogOut
 } from 'lucide-react';
 import { 
   linkWithCredential, 
@@ -27,12 +27,11 @@ import { SecurityCenterTab } from '@/components/security/SecurityCenterTab';
 import { DataIntegrityTab } from '@/components/security/DataIntegrityTab';
 import { PrivacyCenterTab } from '@/components/security/PrivacyCenterTab';
 import { SecurityAuditLogTab } from '@/components/security/SecurityAuditLogTab';
-import { ConnectMT5Section } from '@/components/mt5/ConnectMT5Section';
+import { isCelebrationSoundEnabled, setCelebrationSoundEnabled, playTradeSaveChime } from '@/lib/celebrationAudio';
 
 const SETTINGS_SECTIONS = [
   { id: 'profile', label: 'Profile', icon: User, group: 'ACCOUNT' },
   { id: 'dashboards', label: 'Dashboards', icon: BookOpen, group: 'ACCOUNT' },
-  { id: 'accounts', label: 'Trading Accounts', icon: CreditCard, group: 'ACCOUNT' },
   
   { id: 'risk', label: 'Risk Management', icon: ShieldAlert, group: 'TRADING' },
   { id: 'entry', label: 'Trade Entry', icon: LogIn, group: 'TRADING' },
@@ -64,7 +63,7 @@ export default function Settings() {
     localSettingsRef.current = localSettings;
   }, [localSettings]);
 
-  const { user, profile, updateProfile, dashboards, createDashboard, deleteDashboard, activeDashboard, setActiveDashboard, deleteAccount } = useAuth();
+  const { user, profile, updateProfile, dashboards, createDashboard, deleteDashboard, activeDashboard, setActiveDashboard, deleteAccount, logout } = useAuth();
   const { trades, strategies, learnings, rules, deleteAllTradeData, resetDashboardData } = useData();
 
   const [newDashName, setNewDashName] = useState('');
@@ -78,6 +77,7 @@ export default function Settings() {
 
   // Trust & Security Subtab State
   const [securitySubTab, setSecuritySubTab] = useState<'security' | 'integrity' | 'privacy' | 'audit'>('security');
+  const [celebrationSound, setCelebrationSound] = useState<boolean>(() => isCelebrationSoundEnabled());
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -160,7 +160,7 @@ export default function Settings() {
               />
             </div>
 
-            <div className="space-y-6 hidden lg:block overflow-y-auto max-h-[calc(100vh-200px)] pr-2 pb-10">
+            <div className="space-y-6 hidden lg:block overflow-y-auto max-h-[calc(100dvh-200px)] pr-2 pb-10">
               {groups.map(group => (
                 <div key={group}>
                   <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2 tracking-wider">{group}</h3>
@@ -185,6 +185,21 @@ export default function Settings() {
                   </div>
                 </div>
               ))}
+
+              {/* Log Out button in Settings desktop navigation */}
+              <div className="pt-4 border-t border-slate-200/80 dark:border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                    navigate('/login');
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/15 border border-rose-500/20 transition-all cursor-pointer group"
+                >
+                  <LogOut className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>Log Out</span>
+                </button>
+              </div>
             </div>
 
             {/* Mobile/Tablet horizontal scroll navigation */}
@@ -206,6 +221,17 @@ export default function Settings() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  navigate('/login');
+                }}
+                className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log Out</span>
+              </button>
             </div>
           </div>
         </div>
@@ -218,35 +244,35 @@ export default function Settings() {
 
           {activeSection === 'appearance' && (
             <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-              <div className="border-b border-slate-200 pb-4">
-                <h2 className="text-xl font-semibold text-slate-900">Appearance</h2>
-                <p className="text-sm text-slate-500 mt-1">Customize the look and feel of your platform.</p>
+              <div className="border-b border-slate-200/80 dark:border-white/[0.08] pb-4">
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Appearance</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Customize the look and feel of your platform.</p>
               </div>
               
               <div className="space-y-8 max-w-2xl">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3">Theme Preference</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-200 mb-3">Theme Preference</h3>
                   <div className="grid grid-cols-3 gap-4">
                     {(['light', 'dark', 'system'] as const).map(theme => (
                       <div 
                         key={theme}
                         onClick={() => updateSection('appearance', { theme })}
-                        className={`cursor-pointer rounded-xl border-2 p-1 transition-all ${localSettings.appearance.theme === theme ? 'border-blue-600 bg-blue-50/50' : 'border-transparent hover:bg-slate-100'}`}
+                        className={`cursor-pointer rounded-xl border-2 p-1 transition-all ${localSettings.appearance.theme === theme ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40' : 'border-transparent hover:bg-slate-100 dark:hover:bg-white/[0.05]'}`}
                       >
-                        <div className={`h-24 rounded-lg border border-slate-200 flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
-                          <div className={`h-6 border-b ${theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} flex items-center px-2 gap-1`}>
+                        <div className={`h-24 rounded-lg border border-slate-200 dark:border-white/[0.08] flex flex-col overflow-hidden ${theme === 'dark' ? 'bg-black' : 'bg-slate-50'}`}>
+                          <div className={`h-6 border-b ${theme === 'dark' ? 'bg-slate-950 border-white/[0.08]' : 'bg-white border-slate-200'} flex items-center px-2 gap-1`}>
                             <div className="w-2 h-2 rounded-full bg-slate-400"></div>
                             <div className="w-2 h-2 rounded-full bg-slate-400"></div>
                           </div>
                           <div className="flex-1 p-2 flex gap-2">
-                            <div className={`w-6 h-full rounded ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'}`}></div>
+                            <div className={`w-6 h-full rounded ${theme === 'dark' ? 'bg-slate-950' : 'bg-white'}`}></div>
                             <div className="flex-1 flex flex-col gap-2">
                               <div className={`h-4 rounded ${theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'}`}></div>
-                              <div className={`flex-1 rounded ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'}`}></div>
+                              <div className={`flex-1 rounded ${theme === 'dark' ? 'bg-slate-950' : 'bg-white'}`}></div>
                             </div>
                           </div>
                         </div>
-                        <p className="text-center text-sm font-medium text-slate-700 mt-2 capitalize">{theme}</p>
+                        <p className="text-center text-sm font-medium text-slate-700 dark:text-slate-300 mt-2 capitalize">{theme}</p>
                       </div>
                     ))}
                   </div>
@@ -280,35 +306,50 @@ export default function Settings() {
 
           {activeSection === 'dashboards' && (
             <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-              <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
+              <div className="border-b border-slate-200/80 dark:border-white/[0.08] pb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Dashboards</h2>
-                  <p className="text-sm text-slate-500 mt-1">Manage your independent trading journals.</p>
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Dashboards</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your independent trading journals.</p>
                 </div>
-                <Button onClick={() => setShowCreateDash(true)} className="gap-2">
+                <Button onClick={() => setShowCreateDash(true)} className="gap-2 cursor-pointer">
                   <Plus className="w-4 h-4" /> New Dashboard
                 </Button>
               </div>
 
               {showCreateDash && (
-                <Card className="p-6 bg-blue-50/50 border-blue-100">
-                  <h3 className="text-lg font-medium text-slate-900 mb-4">Create New Dashboard</h3>
+                <Card className="p-6 bg-blue-50/50 dark:bg-blue-950/25 border-blue-200/60 dark:border-blue-500/20 rounded-2xl">
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-4">Create New Dashboard</h3>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-                      <input type="text" value={newDashName} onChange={e => setNewDashName(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-300" placeholder="e.g. Gold Scalping" />
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Name</label>
+                      <input 
+                        type="text" 
+                        value={newDashName} 
+                        onChange={e => setNewDashName(e.target.value)} 
+                        className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-black text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30" 
+                        placeholder="e.g. Gold Scalping" 
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
-                      <select value={newDashCurrency} onChange={e => setNewDashCurrency(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-300">
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Currency</label>
+                      <select 
+                        value={newDashCurrency} 
+                        onChange={e => setNewDashCurrency(e.target.value)} 
+                        className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-black text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                      >
+                        <option value="USD" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">USD</option>
+                        <option value="EUR" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">EUR</option>
+                        <option value="GBP" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">GBP</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Starting Balance</label>
-                      <input type="number" value={newDashBalance} onChange={e => setNewDashBalance(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-300" />
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Starting Balance</label>
+                      <input 
+                        type="number" 
+                        value={newDashBalance} 
+                        onChange={e => setNewDashBalance(e.target.value)} 
+                        className="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-black text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30" 
+                      />
                     </div>
                   </div>
                   <div className="mt-4 flex gap-3 justify-end">
@@ -325,13 +366,13 @@ export default function Settings() {
 
               <div className="space-y-4">
                 {dedupById(dashboards).map(d => (
-                  <Card key={d.id} className={`p-5 flex items-center justify-between ${activeDashboard?.id === d.id ? 'ring-2 ring-blue-500' : ''}`}>
+                  <Card key={d.id} className={`p-5 flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-white/[0.08] ${activeDashboard?.id === d.id ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}`}>
                     <div>
-                      <h3 className="text-lg font-medium text-slate-900 flex items-center gap-2">
+                      <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         {d.name} 
-                        {activeDashboard?.id === d.id && <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider">Active</span>}
+                        {activeDashboard?.id === d.id && <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 text-xs font-bold uppercase tracking-wider">Active</span>}
                       </h3>
-                      <p className="text-sm text-slate-500 mt-1">Currency: {d.currency} &bull; Starting Balance: {d.startingBalance}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Currency: {d.currency} &bull; Starting Balance: {d.startingBalance}</p>
                     </div>
                     <div className="flex gap-2">
                       {activeDashboard?.id !== d.id && (
@@ -342,7 +383,7 @@ export default function Settings() {
                       {dashboards.length > 1 && (
                         <Button 
                           variant="outline" 
-                          className="text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200" 
+                          className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300 border-rose-200 dark:border-rose-900/50" 
                           onClick={() => setDeleteDashboardTarget(d)}
                           title={`Delete dashboard ${d.name}`}
                         >
@@ -355,15 +396,15 @@ export default function Settings() {
               </div>
 
               {activeDashboard && (
-                <div className="mt-8 pt-6 border-t border-slate-200">
-                  <div className="bg-red-50/60 border border-red-200 rounded-xl p-5">
-                    <h3 className="text-base font-bold text-red-900 mb-1">Danger Zone</h3>
-                    <p className="text-sm text-red-700 mb-4">
+                <div className="mt-8 pt-6 border-t border-slate-200/80 dark:border-white/[0.08]">
+                  <div className="bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 rounded-2xl p-5">
+                    <h3 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Danger Zone</h3>
+                    <p className="text-sm text-rose-700 dark:text-rose-300/90 mb-4">
                       Delete all trade logs belonging to <strong>{activeDashboard.name}</strong>. Your strategies, other dashboards, and user profile will remain completely safe.
                     </p>
                     <Button 
                       variant="outline" 
-                      className="text-red-600 border-red-300 hover:bg-red-600 hover:text-white transition-colors" 
+                      className="text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800/60 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white transition-colors cursor-pointer" 
                       onClick={() => setDeleteDataModalOpen(true)}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
@@ -375,11 +416,6 @@ export default function Settings() {
             </div>
           )}
 
-          {activeSection === 'accounts' && (
-            <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-              <ConnectMT5Section targetDashboardId={activeDashboard?.id} />
-            </div>
-          )}
 
           {activeSection === 'risk' && (
             <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -615,6 +651,53 @@ export default function Settings() {
                 <p className="text-sm text-slate-500 mt-1">Manage trading alerts and journal reminders.</p>
               </div>
               <div className="space-y-6 max-w-2xl">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3">Audio & Celebrations</h3>
+                  <div className="space-y-3">
+                    <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">Trade Save Celebration</span>
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            {celebrationSound ? 'ON' : 'OFF'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Play harmonic chime and show celebratory particles when a new trade is validated and saved.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            playTradeSaveChime();
+                          }}
+                          className="px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                          title="Preview chime"
+                        >
+                          Test Sound
+                        </button>
+                        <div className={`w-9 h-5 rounded-full transition-colors flex items-center px-1 ${celebrationSound ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                          <div className={`w-3 h-3 bg-white rounded-full transition-transform ${celebrationSound ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          className="hidden" 
+                          checked={celebrationSound} 
+                          onChange={(e) => {
+                            const next = e.target.checked;
+                            setCelebrationSound(next);
+                            setCelebrationSoundEnabled(next);
+                            if (next) playTradeSaveChime();
+                          }} 
+                        />
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900 mb-3">Trading Alerts</h3>
                   <div className="space-y-3">

@@ -118,11 +118,11 @@ export const InstrumentSelector: React.FC<InstrumentSelectorProps> = ({
 
       {/* Chips of instruments */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto pr-1">
-        {filteredInstruments.map((inst) => {
+        {filteredInstruments.map((inst, idx) => {
           const isSelected = selected.symbol === inst.symbol && !selected.isCustom;
           return (
             <button
-              key={inst.symbol}
+              key={`inst-chip-${inst.symbol}-${idx}`}
               type="button"
               onClick={() => onSelect(inst)}
               className={`flex items-center justify-between p-2 rounded-lg text-left transition-all border text-xs cursor-pointer ${

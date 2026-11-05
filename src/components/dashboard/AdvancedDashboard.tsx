@@ -245,15 +245,15 @@ export const AdvancedDashboard: React.FC<{ trades: Trade[]; kpis: any; onToggleM
           
           <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)} className="appearance-none px-3 py-1.5 rounded-lg bg-[#0A0E1A] border border-[#1E2A45] hover:border-[#00D4FF]/50 text-xs font-bold text-slate-300 pr-8 outline-none cursor-pointer">
             <option value="ALL">Account: All</option>
-            {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+            {accounts.map((acc, idx) => <option key={`adv-acc-${acc}-${idx}`} value={acc}>{acc}</option>)}
           </select>
           <select value={selectedMarket} onChange={e => setSelectedMarket(e.target.value)} className="appearance-none px-3 py-1.5 rounded-lg bg-[#0A0E1A] border border-[#1E2A45] hover:border-[#00D4FF]/50 text-xs font-bold text-slate-300 pr-8 outline-none cursor-pointer">
             <option value="ALL">Market: All</option>
-            {markets.map(m => <option key={m} value={m}>{m}</option>)}
+            {markets.map((m, idx) => <option key={`adv-mkt-${m}-${idx}`} value={m}>{m}</option>)}
           </select>
           <select value={selectedStrategy} onChange={e => setSelectedStrategy(e.target.value)} className="appearance-none px-3 py-1.5 rounded-lg bg-[#0A0E1A] border border-[#1E2A45] hover:border-[#00D4FF]/50 text-xs font-bold text-slate-300 pr-8 outline-none cursor-pointer">
             <option value="ALL">Strategy: All</option>
-            {strategies.map(s => <option key={s} value={s}>{s}</option>)}
+            {strategies.map((s, idx) => <option key={`adv-strat-${s}-${idx}`} value={s}>{s}</option>)}
           </select>
           
           <button type="button" onClick={() => { setTimeRange('ALL'); setSelectedAccount('ALL'); setSelectedMarket('ALL'); setSelectedStrategy('ALL'); setCrossFilterMarket(null); }} className="px-3 py-1.5 rounded-lg bg-[#0A0E1A] border border-[#1E2A45] hover:border-[#FF4560]/50 hover:text-[#FF4560] text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-colors">
@@ -510,9 +510,9 @@ export const AdvancedDashboard: React.FC<{ trades: Trade[]; kpis: any; onToggleM
                  </tr>
                </thead>
                <tbody>
-                 {instrumentData.map(d => (
+                 {instrumentData.map((d, idx) => (
                    <tr 
-                     key={d.pair} 
+                     key={`adv-inst-${d.pair}-${idx}`} 
                      onClick={() => setCrossFilterMarket(d.pair)}
                      className="border-b border-[#1E2A45]/50 hover:bg-[#1E2A45]/30 cursor-pointer group transition-colors"
                      role="button"

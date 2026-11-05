@@ -11,13 +11,15 @@ import {
   CheckCircle2,
   Server,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Terminal
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConnectedTradingAccount, MT5SyncResult } from '@/types/mt5';
 import { mt5ClientService } from '@/services/mt5ClientService';
 import { formatCurrency } from '@/lib/utils';
 import { formatDistanceToNow, format } from 'date-fns';
+import { MT5DiagnosticModal } from './MT5DiagnosticModal';
 
 interface MT5AccountCardProps {
   account: ConnectedTradingAccount;
@@ -35,6 +37,7 @@ export function MT5AccountCard({
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
   const handleManualSync = async () => {
@@ -43,7 +46,11 @@ export function MT5AccountCard({
     try {
       const targetDash = dashboardId || account.targetDashboardId || 'default';
       const result: MT5SyncResult = await mt5ClientService.syncTrades(account.id, targetDash, 30);
-      setSyncFeedback(`Sync complete: ${result.imported} new trades imported (${result.duplicates} duplicates verified).`);
+      const parts = [`${result.imported} imported`];
+      if (result.updated > 0) parts.push(`${result.updated} updated`);
+      if (result.duplicates > 0) parts.push(`${result.duplicates} verified`);
+      if (result.skipped > 0) parts.push(`${result.skipped} rejected`);
+      setSyncFeedback(`Sync complete: ${parts.join(', ')}.`);
       if (onRefresh) onRefresh();
     } catch (err: any) {
       setSyncFeedback(err?.message || 'Sync failed.');
@@ -84,7 +91,7 @@ export function MT5AccountCard({
             <Zap className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-bold text-sm text-slate-100">{account.accountName || account.broker}</h4>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                 account.status === 'connected'
@@ -98,6 +105,11 @@ export function MT5AccountCard({
               <span className="text-[10px] font-mono uppercase bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">
                 {account.connectionType}
               </span>
+              {(account.challengeStartingBalance || account.startingBalance) && (
+                <span className="text-[10px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded" title="Original Challenge Size (Metadata Only)">
+                  Challenge Size: {formatCurrency(account.challengeStartingBalance || account.startingBalance || 0)}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-2">
               <span>{account.broker}</span>
@@ -105,12 +117,18 @@ export function MT5AccountCard({
               <span className="text-slate-300">{account.server}</span>
               <span>•</span>
               <span className="text-blue-400">Acc: {account.accountNumber}</span>
+              {account.currency && (
+                <>
+                  <span>•</span>
+                  <span className="text-slate-400 font-semibold">{account.currency}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <Button
             size="sm"
             variant="outline"
@@ -136,6 +154,17 @@ export function MT5AccountCard({
             </Button>
           )}
 
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowDiagnostics(true)}
+            className="h-8 px-2 text-xs text-slate-400 hover:text-purple-300 hover:bg-purple-950/20"
+            title="Open Data Integrity Diagnostics"
+          >
+            <Terminal className="w-3.5 h-3.5 mr-1 text-purple-400" />
+            <span className="hidden sm:inline">Diagnostics</span>
+          </Button>
+
           <button
             type="button"
             onClick={() => setShowDisconnectConfirm(true)}
@@ -158,16 +187,16 @@ export function MT5AccountCard({
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800/80">
         <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/60">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Balance</span>
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">MT5 Balance</span>
           <p className="text-sm font-bold text-slate-100 font-mono mt-0.5">
-            {formatCurrency(account.balance || 0)}
+            {formatCurrency(account.liveMt5Balance ?? account.balance ?? 0)}
           </p>
         </div>
 
         <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/60">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Equity</span>
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">MT5 Equity</span>
           <p className="text-sm font-bold text-slate-100 font-mono mt-0.5">
-            {formatCurrency(account.equity || 0)}
+            {formatCurrency(account.liveMt5Equity ?? account.equity ?? 0)}
           </p>
         </div>
 
@@ -186,6 +215,15 @@ export function MT5AccountCard({
           </p>
         </div>
       </div>
+
+      {/* Diagnostics Modal */}
+      {showDiagnostics && (
+        <MT5DiagnosticModal
+          account={account}
+          isOpen={showDiagnostics}
+          onClose={() => setShowDiagnostics(false)}
+        />
+      )}
 
       {/* Confirmation Modal: Disconnect */}
       {showDisconnectConfirm && (

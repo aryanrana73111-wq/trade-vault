@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSettings } from '@/lib/settings';
 import { Trade } from '@/types';
 import { Card } from '@/components/ui/Input';
-import { formatCurrency, formatNumber, dedupById } from '@/lib/utils';
+import { formatCurrency, formatNumber, dedupById, cn } from '@/lib/utils';
 import { calculateKPIs } from '@/lib/calculations';
 import { calculateAdvancedKPIs, generateMonteCarlo } from '@/lib/advancedAnalytics';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -22,9 +22,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { UserAvatar } from '@/components/UserAvatar';
 import { TradingCalendarWidget } from '@/components/dashboard/TradingCalendarWidget';
 import { HighImpactNewsWidget } from '@/components/dashboard/HighImpactNewsWidget';
-import { mt5ClientService } from '@/services/mt5ClientService';
-import { ConnectedTradingAccount } from '@/types/mt5';
-import { MT5AccountCenterModal } from '@/components/mt5/MT5AccountCenterModal';
+import { AdvancedAnalyticsProgressSection } from '@/components/dashboard/milestones/AdvancedAnalyticsProgressSection';
+import { MilestoneUnlockCelebrationModal } from '@/components/dashboard/milestones/MilestoneUnlockCelebrationModal';
+import { 
+  MILESTONE_FEATURES, 
+  MilestoneFeatureDef, 
+  getQualifyingTrades, 
+  getUnlockedMilestonesCount, 
+  getAcknowledgedMilestones, 
+  setAcknowledgedMilestones,
+  hasCelebratedFeature,
+  markFeatureCelebrated
+} from '@/lib/milestoneAnalytics';
 
 // Safe date helpers to prevent RangeError: Invalid time value
 function safeDate(d: any): number {
@@ -65,6 +74,7 @@ function getSessionStatus() {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const { trades: rawTrades, learnings, rules, saveTrade } = useData();
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -82,13 +92,59 @@ export default function Dashboard() {
   // Chart modes
   const [chartMode, setChartMode] = useState<'Equity' | 'Return' | 'R-Multiple'>('Equity');
 
-  // MT5 Accounts State
-  const [connectedMT5Accounts, setConnectedMT5Accounts] = useState<ConnectedTradingAccount[]>([]);
-  const [isMT5ModalOpen, setIsMT5ModalOpen] = useState(false);
-  const [mt5ModalInitialTab, setMt5ModalInitialTab] = useState<'connect' | 'create'>('connect');
+
+  // Milestone Progression & Unlock Celebration State
+  const [celebrationFeature, setCelebrationFeature] = useState<MilestoneFeatureDef | null>(null);
+  const [showMilestoneCelebration, setShowMilestoneCelebration] = useState(false);
+  const [exploreFeatureId, setExploreFeatureId] = useState<string | null>(null);
 
   // Live session status
   const sessionStatus = useMemo(() => getSessionStatus(), []);
+
+  // Qualifying trades for milestone calculation in current scope
+  const qualifyingTrades = useMemo(() => {
+    return getQualifyingTrades(trades, selectedAccount);
+  }, [trades, selectedAccount]);
+
+  const currentUnlockedMilestonesCount = useMemo(() => {
+    return getUnlockedMilestonesCount(qualifyingTrades.length);
+  }, [qualifyingTrades.length]);
+
+  // Handle milestone unlock check
+  useEffect(() => {
+    if (!user) return;
+    const userId = user.uid;
+    const dashId = selectedAccount || 'default';
+    const ack = getAcknowledgedMilestones(userId, dashId);
+
+    if (ack === -1) {
+      // First load: initialize acknowledged count silently to avoid retroactive popups
+      setAcknowledgedMilestones(userId, dashId, currentUnlockedMilestonesCount);
+    } else if (currentUnlockedMilestonesCount > ack && currentUnlockedMilestonesCount > 0) {
+      // User just unlocked a new milestone! Verify it was NEVER celebrated before
+      const newFeature = MILESTONE_FEATURES[currentUnlockedMilestonesCount - 1];
+      if (newFeature && !hasCelebratedFeature(userId, newFeature.id)) {
+        setCelebrationFeature(newFeature);
+        setShowMilestoneCelebration(true);
+        markFeatureCelebrated(userId, newFeature.id);
+      }
+      setAcknowledgedMilestones(userId, dashId, currentUnlockedMilestonesCount);
+    } else if (currentUnlockedMilestonesCount < ack) {
+      // Recalculate downwards if trades were deleted
+      setAcknowledgedMilestones(userId, dashId, currentUnlockedMilestonesCount);
+    }
+  }, [user, selectedAccount, currentUnlockedMilestonesCount]);
+
+  useEffect(() => {
+    const milestoneParam = searchParams.get('exploreMilestone');
+    if (milestoneParam) {
+      setExploreFeatureId(milestoneParam);
+      setTimeout(() => {
+        const el = document.getElementById('advanced-analytics-progress');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const sorted = [...rawTrades].sort((a, b) => safeDate(a.date) - safeDate(b.date));
@@ -97,14 +153,8 @@ export default function Dashboard() {
     const handleSettingsUpdate = () => setSettings(getSettings());
     window.addEventListener('tradevault_settings_updated', handleSettingsUpdate);
 
-    // Subscribe to MT5 connected accounts for current user
-    const unsubMT5 = mt5ClientService.subscribeConnectedAccounts((list) => {
-      setConnectedMT5Accounts(list);
-    });
-
     return () => {
       window.removeEventListener('tradevault_settings_updated', handleSettingsUpdate);
-      unsubMT5();
     };
   }, [rawTrades]);
 
@@ -127,11 +177,15 @@ export default function Dashboard() {
 
     if (selectedAccount !== 'ALL') {
       if (selectedAccount === 'MANUAL') {
-        filtered = filtered.filter(t => t.tradeSource !== 'mt5');
-      } else {
+        filtered = filtered.filter(t => t.tradeSource !== 'mt5' && t.tradeSource !== 'competition_mt5' && !t.mt5TicketId);
+      } else if (selectedAccount.startsWith('mt5_')) {
         filtered = filtered.filter(t => 
           t.tradingAccountId === selectedAccount || 
           t.mt5AccountId === selectedAccount ||
+          t.id.startsWith(selectedAccount)
+        );
+      } else {
+        filtered = filtered.filter(t => 
           (t.accountId || t.dashboardId || "Default") === selectedAccount
         );
       }
@@ -445,69 +499,80 @@ export default function Dashboard() {
           </button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+              <h1 
+                className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate px-2 py-0.5 rounded-lg bg-transparent"
+              >
                 {profile?.fullName || user?.displayName || 'Trader Dashboard'}
               </h1>
               {profile?.tradingStyle && (
-                <span className="text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 font-semibold uppercase tracking-wider shrink-0">
+                <span className="text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full bg-blue-100/80 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 font-semibold uppercase tracking-wider shrink-0 border border-blue-500/20 backdrop-blur-xs">
                   {profile.tradingStyle}
                 </span>
               )}
             </div>
-            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5 truncate">
+            <p 
+              className="max-w-xl text-slate-600 dark:text-slate-300 text-xs sm:text-sm mt-1 border border-slate-200/30 dark:border-white/[0.08] bg-white/10 dark:bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-xl inline-block font-sans shadow-xs"
+            >
               Institutional-grade execution journal & behavioral performance metrics.
             </p>
           </div>
         </div>
+
       </div>
 
-      {/* Global Trading Sessions & Market Hours Radar Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-xs border border-slate-800">
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-          <Globe className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" />
-          <span className="font-semibold text-white">Global Markets:</span>
+      {/* Global Trading Sessions & Market Hours Radar Banner (Transparent Glass) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/10 dark:bg-black/30 backdrop-blur-md border border-slate-200/20 dark:border-white/[0.08] text-white shadow-lg shadow-black/20 min-w-0">
+        <div className="flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
+            <Globe className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" />
+            <span className="font-semibold text-white">Global Markets:</span>
+          </div>
+          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 sm:hidden">
+            <Clock className="w-3.5 h-3.5 text-slate-500" />
+            <span>UTC {format(new Date(), 'HH:mm')}</span>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+        <div className="flex items-center gap-2 text-xs overflow-x-auto no-scrollbar pb-0.5 max-w-full">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors shrink-0 ${
             sessionStatus.isAsian 
               ? 'bg-emerald-950/80 border-emerald-600 text-emerald-300' 
               : 'bg-slate-800/60 border-slate-700 text-slate-400'
           }`}>
             <span className={`w-2 h-2 rounded-full ${sessionStatus.isAsian ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
-            <span>Tokyo / Asian</span>
-            <span className="text-[9px] opacity-70">00:00-09:00 UTC</span>
+            <span>Tokyo</span>
+            <span className="text-[9px] opacity-70 hidden xs:inline">00:00-09:00 UTC</span>
           </div>
 
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors shrink-0 ${
             sessionStatus.isLondon 
               ? 'bg-blue-950/80 border-blue-500 text-blue-300' 
               : 'bg-slate-800/60 border-slate-700 text-slate-400'
           }`}>
             <span className={`w-2 h-2 rounded-full ${sessionStatus.isLondon ? 'bg-blue-400 animate-ping' : 'bg-slate-500'}`} />
             <span>London</span>
-            <span className="text-[9px] opacity-70">08:00-16:30 UTC</span>
+            <span className="text-[9px] opacity-70 hidden xs:inline">08:00-16:30 UTC</span>
           </div>
 
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors shrink-0 ${
             sessionStatus.isNY 
               ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' 
               : 'bg-slate-800/60 border-slate-700 text-slate-400'
           }`}>
             <span className={`w-2 h-2 rounded-full ${sessionStatus.isNY ? 'bg-indigo-400 animate-ping' : 'bg-slate-500'}`} />
             <span>New York</span>
-            <span className="text-[9px] opacity-70">13:00-21:00 UTC</span>
+            <span className="text-[9px] opacity-70 hidden xs:inline">13:00-21:00 UTC</span>
           </div>
 
           {sessionStatus.isOverlap && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/90 border border-amber-500 text-amber-300 text-[11px] font-bold animate-pulse">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/90 border border-amber-500 text-amber-300 text-[11px] font-bold animate-pulse shrink-0">
               <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>London/NY Overlap (Peak Liquidity)</span>
+              <span>London/NY Overlap</span>
             </div>
           )}
         </div>
 
-        <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 ml-auto">
+        <div className="text-[11px] text-slate-400 font-mono hidden sm:flex items-center gap-1.5 ml-auto shrink-0">
           <Clock className="w-3.5 h-3.5 text-slate-500" />
           <span>UTC {format(new Date(), 'HH:mm')}</span>
         </div>
@@ -559,19 +624,19 @@ export default function Dashboard() {
       )}
 
       {/* Interactive Global Time & Dimension Filters */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl glass-card shadow-xs">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl glass-card shadow-xs min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1 shrink-0">
             <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>Range:</span>
           </div>
-          <div className="flex items-center bg-slate-100/80 dark:bg-slate-800/60 rounded-xl p-0.5 border border-slate-200/80 dark:border-white/[0.08]">
+          <div className="flex items-center bg-slate-100/80 dark:bg-slate-800/60 rounded-xl p-0.5 border border-slate-200/80 dark:border-white/[0.08] overflow-x-auto no-scrollbar max-w-full">
             {['1D', '1W', '1M', '3M', '6M', 'YTD', 'ALL'].map((range) => (
               <button
                 key={range}
                 type="button"
                 onClick={() => setTimeRange(range)}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-lg transition-all shrink-0 ${
                   timeRange === range
                     ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -586,7 +651,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setCrossFilterMarket(null)}
-              className="px-2.5 py-1 rounded-xl bg-blue-50/80 dark:bg-blue-950/60 border border-blue-200/80 dark:border-blue-800/80 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center gap-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+              className="px-2.5 py-1 rounded-xl bg-blue-50/80 dark:bg-blue-950/60 border border-blue-200/80 dark:border-blue-800/80 text-blue-600 dark:text-blue-400 text-xs font-bold flex items-center gap-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors shrink-0"
             >
               <Filter className="w-3 h-3" />
               <span>{crossFilterMarket}</span>
@@ -595,32 +660,35 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex items-center gap-2 w-full lg:w-auto">
           <select
             value={selectedAccount}
             onChange={e => setSelectedAccount(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500"
+            className="w-full lg:w-auto px-3 py-2 min-h-[40px] rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500"
           >
-            <option value="ALL">Account: All</option>
-            {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+            <option value="ALL">Account: All Accounts</option>
+            <option value="MANUAL">Manual Journal Trades</option>
+            {accounts.map((acc, idx) => (
+              <option key={`dash-acc-${acc}-${idx}`} value={acc}>{acc}</option>
+            ))}
           </select>
 
           <select
             value={selectedMarket}
             onChange={e => setSelectedMarket(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500"
+            className="w-full lg:w-auto px-3 py-2 min-h-[40px] rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500"
           >
             <option value="ALL">Market: All</option>
-            {markets.map(m => <option key={m} value={m}>{m}</option>)}
+            {markets.map((m, idx) => <option key={`dash-mkt-${m}-${idx}`} value={m}>{m}</option>)}
           </select>
 
           <select
             value={selectedStrategy}
             onChange={e => setSelectedStrategy(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500"
+            className="w-full lg:w-auto px-3 py-2 min-h-[40px] rounded-xl bg-white/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 outline-none cursor-pointer focus:ring-1 focus:ring-blue-500"
           >
             <option value="ALL">Strategy: All</option>
-            {strategies.map(s => <option key={s} value={s}>{s}</option>)}
+            {strategies.map((s, idx) => <option key={`dash-strat-${s}-${idx}`} value={s}>{s}</option>)}
           </select>
 
           {hasActiveFilters && (
@@ -633,7 +701,7 @@ export default function Dashboard() {
                 setSelectedStrategy('ALL');
                 setCrossFilterMarket(null);
               }}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors"
+              className="w-full lg:w-auto px-3 py-2 min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
             >
               Reset Filters <X className="w-3 h-3" />
             </button>
@@ -677,61 +745,64 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
         <StatCard 
           title="Sharpe Ratio" 
-          value={filteredTrades.length > 2 && advKpis.sharpeRatio !== 0 ? advKpis.sharpeRatio.toFixed(2) : '--'}
+          value={filteredTrades.length > 2 && Number.isFinite(advKpis?.sharpeRatio) && advKpis.sharpeRatio !== 0 ? advKpis.sharpeRatio.toFixed(2) : '--'}
           icon={<Activity className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />}
-          trend={advKpis.sharpeRatio >= 1 ? 'up' : 'neutral'}
+          trend={Number.isFinite(advKpis?.sharpeRatio) && advKpis.sharpeRatio >= 1 ? 'up' : 'neutral'}
           subtitle="Risk-adjusted return"
         />
         <StatCard 
           title="Sortino Ratio" 
-          value={filteredTrades.length > 2 && advKpis.sortinoRatio !== 0 ? advKpis.sortinoRatio.toFixed(2) : '--'}
+          value={filteredTrades.length > 2 && Number.isFinite(advKpis?.sortinoRatio) && advKpis.sortinoRatio !== 0 ? advKpis.sortinoRatio.toFixed(2) : '--'}
           icon={<TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />}
-          trend={advKpis.sortinoRatio >= 1.5 ? 'up' : 'neutral'}
+          trend={Number.isFinite(advKpis?.sortinoRatio) && advKpis.sortinoRatio >= 1.5 ? 'up' : 'neutral'}
           subtitle="Downside adjusted"
         />
         <StatCard 
           title="Expectancy" 
-          value={filteredTrades.length > 0 ? `${advKpis.expectancy > 0 ? '+' : ''}${advKpis.expectancy.toFixed(2)}R` : '--'}
+          value={filteredTrades.length > 0 && Number.isFinite(advKpis?.expectancy) ? `${advKpis.expectancy > 0 ? '+' : ''}${advKpis.expectancy.toFixed(2)}R` : '--'}
           icon={<Crosshair className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />}
-          trend={advKpis.expectancy >= 0 && filteredTrades.length > 0 ? 'up' : (filteredTrades.length > 0 ? 'down' : 'neutral')}
+          trend={Number.isFinite(advKpis?.expectancy) && advKpis.expectancy >= 0 && filteredTrades.length > 0 ? 'up' : (filteredTrades.length > 0 ? 'down' : 'neutral')}
           subtitle="Average R yield per trade"
         />
         <StatCard 
           title="Max Drawdown" 
-          value={kpis.closedTradesCount > 0 ? (kpis.maxDrawdown > 0 ? `-${formatCurrency(kpis.maxDrawdown)}` : '$0.00') : '--'}
+          value={(kpis?.closedTradesCount ?? 0) > 0 ? ((kpis?.maxDrawdown ?? 0) > 0 ? `-${formatCurrency(kpis.maxDrawdown)}` : '$0.00') : '--'}
           icon={<TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600 dark:text-rose-400" />}
-          trend={kpis.closedTradesCount > 0 && kpis.maxDrawdown > 0 ? 'down' : 'neutral'}
+          trend={(kpis?.closedTradesCount ?? 0) > 0 && (kpis?.maxDrawdown ?? 0) > 0 ? 'down' : 'neutral'}
           subtitle="Peak to valley drawdown"
         />
       </div>
 
       {/* Row 3: Advanced Equity Curve & Rolling Performance Windows */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-5 lg:gap-6 min-w-0">
         {/* Advanced Equity Curve */}
-        <Card className="lg:col-span-2 p-4 sm:p-6 min-w-0 w-full flex flex-col">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100">Advance Equity Curve</h2>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100/80 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300">
-                  {chartMode}
+        <Card className="lg:col-span-2 p-3.5 sm:p-5 lg:p-6 min-w-0 w-full flex flex-col justify-between rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-white/[0.08] shadow-xs">
+          {/* Header & Mode Switcher (Laptop & Mobile Friendly) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3.5 sm:mb-5 min-w-0">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm sm:text-base lg:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
+                  Advance Equity Curve
+                </h2>
+                <span className="text-[10px] sm:text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 shrink-0">
+                  {chartMode === 'Equity' ? 'USD $' : chartMode === 'Return' ? 'RETURN %' : 'R-MULTIPLE'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Cumulative progression with underwater drawdown tracking
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                Cumulative equity trajectory with underwater drawdown depth
               </p>
             </div>
 
             {/* Mode Switcher */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+            <div className="flex items-center gap-1.5 shrink-0 self-stretch sm:self-auto w-full sm:w-auto">
+              <div className="grid grid-cols-3 sm:flex items-center bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold w-full sm:w-auto shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setChartMode('Equity')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all text-center flex items-center justify-center text-[11px] sm:text-xs font-bold cursor-pointer active:scale-[0.98] ${
                     chartMode === 'Equity'
                       ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
                   Equity ($)
@@ -739,10 +810,10 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setChartMode('Return')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all text-center flex items-center justify-center text-[11px] sm:text-xs font-bold cursor-pointer active:scale-[0.98] ${
                     chartMode === 'Return'
                       ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
                   % Return
@@ -750,10 +821,10 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setChartMode('R-Multiple')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition-all text-center flex items-center justify-center text-[11px] sm:text-xs font-bold cursor-pointer active:scale-[0.98] ${
                     chartMode === 'R-Multiple'
                       ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
                   R-Multiple
@@ -762,10 +833,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="h-[280px] sm:h-[340px] w-full min-w-0">
+          {/* Chart Container (Responsive height for Mobile, Tablet, Laptop) */}
+          <div className="h-[250px] xs:h-[280px] sm:h-[320px] lg:h-[340px] xl:h-[360px] w-full min-w-0 relative">
             {advancedEquityData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={advancedEquityData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                <AreaChart data={advancedEquityData} margin={{ top: 10, right: 8, left: -20, bottom: 5 }}>
                   <defs>
                     <linearGradient id="normColorEquity" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
@@ -781,26 +853,54 @@ export default function Dashboard() {
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 11 }} 
+                    tick={{ fill: '#64748b', fontSize: 10 }} 
                     dy={8}
-                    minTickGap={25}
+                    minTickGap={20}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    tick={{ fill: '#64748b', fontSize: 10 }}
                     tickFormatter={(val) => chartMode === 'Equity' ? `$${val >= 1000 ? `${(val/1000).toFixed(0)}k` : val}` : chartMode === 'R-Multiple' ? `${val}R` : `${val}%`}
-                    dx={-5}
-                    width={52}
+                    dx={-4}
+                    width={48}
                   />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number, name: string) => {
-                      if (name === 'equity') return [formatCurrency(value), 'Equity'];
-                      if (name === 'drawdown') return [formatCurrency(value), 'Drawdown'];
-                      if (name === 'returnPercent') return [`${value.toFixed(1)}%`, 'Return %'];
-                      if (name === 'rMultiple') return [`${value.toFixed(2)}R`, 'Cumulative R'];
-                      return [value, name];
+                    content={({ active, payload }) => {
+                      if (!active || !payload || !payload.length) return null;
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-slate-900/95 text-white backdrop-blur-md border border-slate-700/80 rounded-xl shadow-xl p-3 text-xs space-y-1.5 min-w-[150px] pointer-events-none">
+                          <div className="flex items-center justify-between text-slate-400 font-mono text-[10px] pb-1 border-b border-slate-800">
+                            <span>{data.name}</span>
+                            <span>Trade #{data.tradeIndex}</span>
+                          </div>
+                          <div className="flex items-center justify-between font-bold">
+                            <span className="text-slate-300">Equity:</span>
+                            <span className={data.equity >= 0 ? 'text-emerald-400 font-mono' : 'text-rose-400 font-mono'}>
+                              {formatCurrency(data.equity)}
+                            </span>
+                          </div>
+                          {data.drawdown < 0 && (
+                            <div className="flex items-center justify-between font-medium text-[11px]">
+                              <span className="text-rose-400">Drawdown:</span>
+                              <span className="text-rose-400 font-mono">{formatCurrency(data.drawdown)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-slate-300 font-medium text-[11px]">
+                            <span>Return %:</span>
+                            <span className="font-mono text-blue-400">
+                              {data.returnPercent >= 0 ? '+' : ''}{data.returnPercent.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-slate-300 font-medium text-[11px]">
+                            <span>Cumulative R:</span>
+                            <span className="font-mono text-emerald-400">
+                              {data.rMultiple >= 0 ? '+' : ''}{data.rMultiple.toFixed(2)}R
+                            </span>
+                          </div>
+                        </div>
+                      );
                     }}
                   />
                   <ReferenceLine y={0} stroke="#cbd5e1" />
@@ -829,13 +929,22 @@ export default function Dashboard() {
         </Card>
 
         {/* Rolling Performance Windows */}
-        <Card className="p-4 sm:p-6 min-w-0 w-full flex flex-col justify-between">
+        <Card className="p-3.5 sm:p-5 lg:p-6 min-w-0 w-full flex flex-col justify-between rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-white/[0.08] shadow-xs">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100">Rolling Consistency</h3>
-              <span className="text-[11px] text-slate-400 font-medium">PnL & Win Rate</span>
+            <div className="flex items-center justify-between mb-3.5 sm:mb-4">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                  Rolling Consistency
+                </h3>
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  PnL & Win Rate windows
+                </p>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-md">
+                Trailing
+              </span>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-2.5 sm:space-y-3">
               {[7, 14, 30, 90].map(days => {
                 const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
                 const period = filteredTrades.filter(t => safeDate(t.date) >= cutoff);
@@ -844,21 +953,23 @@ export default function Dashboard() {
                 const isPositive = p >= 0;
 
                 return (
-                  <div key={days} className="p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div key={days} className="p-2.5 sm:p-3 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-800/50 shadow-2xs transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/80">
                     <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                      <span className="text-slate-700 dark:text-slate-300">{days} Days Rolling</span>
-                      <span className={isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                      <span className="text-slate-800 dark:text-slate-200 font-medium">{days} Days Rolling</span>
+                      <span className={`font-mono font-bold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                         {isPositive ? '+' : ''}{formatCurrency(p)}
                       </span>
                     </div>
-                    <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-2 w-full bg-slate-200/80 dark:bg-slate-700/80 rounded-full overflow-hidden">
                       <div 
-                        className={`h-full rounded-full transition-all ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`} 
+                        className={`h-full rounded-full transition-all duration-300 ${isPositive ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-rose-500 to-red-400'}`} 
                         style={{ width: `${Math.min(100, Math.max(0, wr))}%` }} 
                       />
                     </div>
-                    <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                      <span>{wr.toFixed(0)}% Win Rate</span>
+                    <div className="flex justify-between text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">
+                        {Number.isFinite(wr) ? wr.toFixed(0) : '0'}% Win Rate
+                      </span>
                       <span>{period.length} trades</span>
                     </div>
                   </div>
@@ -866,9 +977,9 @@ export default function Dashboard() {
               })}
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-blue-500" />
-            <span>Measures execution consistency across rolling holding periods</span>
+          <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span className="truncate">Measures execution consistency across rolling holding periods</span>
           </div>
         </Card>
       </div>
@@ -960,35 +1071,37 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">P&L matrix across trading sessions and weekdays</p>
             </div>
           </div>
-          <div className="flex-1 mt-1">
-            <div className="grid grid-cols-6 gap-1 text-[11px] font-bold text-center mb-1.5 text-slate-400">
-              <div className="text-left pl-1">Session</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div>
-            </div>
-            {sessionData.map(({ session, dayStats }) => (
-              <div key={session} className="grid grid-cols-6 gap-1 mb-1.5">
-                <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center pl-1 truncate">{session}</div>
-                {dayStats.map(({ day, pnl, count }) => {
-                  const isProfit = pnl > 0;
-                  const isLoss = pnl < 0;
-                  const bg = isProfit 
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300' 
-                    : isLoss 
-                    ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300' 
-                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-400';
-
-                  return (
-                    <div 
-                      key={day} 
-                      className={`h-9 rounded-lg border flex flex-col items-center justify-center text-[10px] font-bold transition-transform hover:scale-105 cursor-pointer ${bg}`}
-                      title={`${session} Day ${day}: ${count} trades, P&L: ${formatCurrency(pnl)}`}
-                    >
-                      <span>{pnl !== 0 ? (pnl > 0 ? `+$${Math.round(pnl)}` : `-$${Math.abs(Math.round(pnl))}`) : '-'}</span>
-                      {count > 0 && <span className="text-[9px] font-normal opacity-70">{count} tr</span>}
-                    </div>
-                  );
-                })}
+          <div className="flex-1 mt-1 overflow-x-auto pb-1">
+            <div className="min-w-[320px]">
+              <div className="grid grid-cols-6 gap-1 text-[11px] font-bold text-center mb-1.5 text-slate-400">
+                <div className="text-left pl-1">Session</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div>
               </div>
-            ))}
+              {sessionData.map(({ session, dayStats }, sIdx) => (
+                <div key={`session-row-${session}-${sIdx}`} className="grid grid-cols-6 gap-1 mb-1.5">
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center pl-1 truncate">{session}</div>
+                  {dayStats.map(({ day, pnl, count }, dIdx) => {
+                    const isProfit = pnl > 0;
+                    const isLoss = pnl < 0;
+                    const bg = isProfit 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300' 
+                      : isLoss 
+                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300' 
+                      : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-400';
+
+                    return (
+                      <div 
+                        key={`day-cell-${session}-${day}-${dIdx}`} 
+                        className={`h-9 rounded-lg border flex flex-col items-center justify-center text-[10px] font-bold transition-transform hover:scale-105 cursor-pointer ${bg}`}
+                        title={`${session} Day ${day}: ${count} trades, P&L: ${formatCurrency(pnl)}`}
+                      >
+                        <span>{pnl !== 0 ? (pnl > 0 ? `+$${Math.round(pnl)}` : `-$${Math.abs(Math.round(pnl))}`) : '-'}</span>
+                        {count > 0 && <span className="text-[9px] font-normal opacity-70">{count} tr</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         </Card>
 
@@ -1002,8 +1115,8 @@ export default function Dashboard() {
             <span className="text-xs text-slate-400 font-medium">{instrumentData.length} pairs</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto pb-1">
+            <table className="w-full text-left text-xs min-w-[340px]">
               <thead>
                 <tr className="text-[11px] text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
                   <th className="py-2.5 font-semibold">Instrument</th>
@@ -1013,9 +1126,9 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {instrumentData.slice(0, 6).map(d => (
+                {instrumentData.slice(0, 6).map((d, idx) => (
                   <tr 
-                    key={d.pair} 
+                    key={`inst-row-${d.pair}-${idx}`} 
                     onClick={() => setCrossFilterMarket(crossFilterMarket === d.pair ? null : d.pair)}
                     className={`hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors ${
                       crossFilterMarket === d.pair ? 'bg-blue-50/70 dark:bg-blue-950/40 font-semibold' : ''
@@ -1026,7 +1139,9 @@ export default function Dashboard() {
                       <span>{d.pair}</span>
                     </td>
                     <td className="py-2.5 text-slate-500 dark:text-slate-400">{d.count}</td>
-                    <td className="py-2.5 text-slate-700 dark:text-slate-300 font-medium">{d.wr.toFixed(0)}%</td>
+                    <td className="py-2.5 text-slate-700 dark:text-slate-300 font-medium">
+                      {Number.isFinite(d.wr) ? d.wr.toFixed(0) : '0'}%
+                    </td>
                     <td className={`py-2.5 text-right font-bold ${d.pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {d.pnl >= 0 ? '+' : ''}{formatCurrency(d.pnl)}
                     </td>
@@ -1299,6 +1414,36 @@ export default function Dashboard() {
           )}
         </div>
       </Card>
+
+      {/* Row 11: Advanced Trade Milestone Progression & Unlocked Analytics System */}
+      <AdvancedAnalyticsProgressSection
+        allTrades={trades}
+        filteredTrades={filteredTrades}
+        rules={rules}
+        currentDashboardId={selectedAccount}
+        onExploreFeatureId={exploreFeatureId}
+      />
+
+      {/* Milestone Unlock Celebration Modal */}
+      <MilestoneUnlockCelebrationModal
+        isOpen={showMilestoneCelebration}
+        feature={celebrationFeature}
+        tradeCount={qualifyingTrades.length}
+        userId={user?.uid || 'default_user'}
+        onClose={() => {
+          setShowMilestoneCelebration(false);
+          setCelebrationFeature(null);
+        }}
+        onExplore={(featureId) => {
+          setShowMilestoneCelebration(false);
+          setCelebrationFeature(null);
+          setExploreFeatureId(featureId);
+          setTimeout(() => {
+            const el = document.getElementById('advanced-analytics-progress');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }}
+      />
     </div>
   );
 }
@@ -1311,32 +1456,48 @@ function StatCard({
   subtitle 
 }: { 
   title: string; 
-  value: string; 
+  value: React.ReactNode; 
   icon: React.ReactNode; 
   trend: 'up' | 'down' | 'neutral';
   subtitle?: string;
 }) {
+  const displayTitle = typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+
   return (
-    <Card className="p-3.5 sm:p-5 flex flex-col justify-between min-h-[110px] sm:h-36 w-full min-w-0 overflow-hidden group hover:border-blue-400/40 dark:hover:border-blue-500/40 transition-all">
-      <div className="flex justify-between items-start gap-2 min-w-0">
-        <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 truncate">{title}</span>
-        <div className="p-1.5 sm:p-2 bg-blue-500/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-400 rounded-xl border border-blue-500/15 shrink-0 group-hover:bg-blue-500/15 transition-colors">
+    <Card className="p-3 sm:p-4 lg:p-4.5 flex flex-col justify-between min-h-[92px] sm:min-h-[112px] lg:h-32 w-full min-w-0 overflow-hidden group rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200 relative">
+      {/* Top accent highlight on hover */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-500/0 to-transparent group-hover:via-blue-500/60 transition-all" />
+
+      <div className="flex justify-between items-start gap-1.5 sm:gap-2 min-w-0">
+        <span className="text-[11px] sm:text-xs lg:text-sm font-semibold text-slate-600 dark:text-slate-300 truncate tracking-tight">
+          {title}
+        </span>
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/60 dark:border-blue-800/60 shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
           {icon}
         </div>
       </div>
-      <div className="flex flex-col mt-2 min-w-0">
+
+      <div className="flex flex-col mt-1 sm:mt-1.5 min-w-0">
         <div className="flex items-baseline justify-between gap-1 overflow-hidden">
-          <span className="text-lg sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate block" title={value}>
+          <span 
+            className="text-base sm:text-xl lg:text-2xl xl:text-[26px] font-extrabold font-mono tracking-tight text-slate-900 dark:text-slate-50 truncate block leading-tight" 
+            title={displayTitle}
+          >
             {value}
           </span>
           {trend !== 'neutral' && (
-            <span className={`inline-flex items-center text-xs sm:text-sm font-medium shrink-0 ${trend === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-              {trend === 'up' ? <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-0.5" />}
+            <span className={cn(
+              "inline-flex items-center text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-md shrink-0",
+              trend === 'up' 
+                ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30" 
+                : "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-500/30"
+            )}>
+              {trend === 'up' ? <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-0.5" />}
             </span>
           )}
         </div>
         {subtitle && (
-          <span className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+          <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate block">
             {subtitle}
           </span>
         )}

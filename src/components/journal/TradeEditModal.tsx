@@ -301,7 +301,17 @@ export function TradeEditModal({
         setupQualityReason: formData.setupQualityReason || undefined,
         newsEventId: formData.newsEventId || undefined,
         newsEventName: formData.newsEventName || undefined,
-        newsImpact: formData.newsImpact ? (formData.newsImpact === 'NON-ECONOMIC' ? 'LOW' : formData.newsImpact as 'HIGH' | 'MEDIUM' | 'LOW') : undefined
+        newsImpact: formData.newsImpact ? (formData.newsImpact === 'NON-ECONOMIC' ? 'LOW' : formData.newsImpact as 'HIGH' | 'MEDIUM' | 'LOW') : undefined,
+
+        // Preserve MT5 Screenshot & Provenance
+        tradeSource: trade.tradeSource,
+        rawSymbol: trade.rawSymbol,
+        normalizedMarket: trade.normalizedMarket,
+        symbolMappingSource: trade.symbolMappingSource,
+        mt5TicketId: trade.mt5TicketId,
+        mt5ScreenshotUrl: trade.mt5ScreenshotUrl,
+        mt5ScreenshotMetadata: trade.mt5ScreenshotMetadata,
+        fieldSources: trade.fieldSources
       };
 
       const result = await updateTrade(trade.id, updates);
@@ -346,9 +356,9 @@ export function TradeEditModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 pb-[max(env(safe-area-inset-bottom,8px),8px)]">
       <div 
-        className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[calc(100dvh-2rem)] my-auto overflow-hidden animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
       >

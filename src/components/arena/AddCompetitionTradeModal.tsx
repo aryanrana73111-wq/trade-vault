@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { compressImageToDataUrl } from '@/lib/avatarStorage';
 import { cn } from '@/lib/utils';
+import { TradeSaveCelebrationModal, TradeCelebrationData } from '@/components/trades/TradeSaveCelebrationModal';
 
 interface AddCompetitionTradeModalProps {
   arena: Arena;
@@ -48,6 +49,10 @@ export function AddCompetitionTradeModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReinstating, setIsReinstating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Trade Save Celebration state
+  const [celebrationData, setCelebrationData] = useState<TradeCelebrationData | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const currentMember = user ? arena.members?.[user.uid] : null;
   const isDisqualified = currentMember?.isDisqualified || currentMember?.complianceStatus === 'DISQUALIFIED';
@@ -85,22 +90,19 @@ export function AddCompetitionTradeModal({
     exitScreenshot: ''
   });
 
-  // Check if current participant can self-reinstate
-  const canSelfReinstate = isDisqualified && (
-    arena.ownerId === user?.uid ||
-    currentMember?.disqualifiedRuleName === 'Maximum Risk Per Trade' ||
-    currentMember?.disqualificationReason?.includes('Maximum Risk Per Trade')
-  );
+  // Host status check: participants CANNOT self-reinstate or self-unlock
+  const isHost = Boolean(arena.ownerId === user?.uid);
+  const canReinstate = isDisqualified && isHost;
 
-  const handleSelfReinstate = async () => {
-    if (!user) return;
+  const handleHostReinstate = async () => {
+    if (!user || !isHost) return;
     setIsReinstating(true);
     setErrorMessage(null);
     try {
       await overrideParticipantDisqualification(
         arena.id,
-        user.uid,
-        'Risk limit self-reinstatement',
+        currentMember?.userId || user.uid,
+        'Host override reinstatement',
         { uid: user.uid, displayName: user.displayName }
       );
       onTradeAdded();
@@ -290,8 +292,18 @@ export function AddCompetitionTradeModal({
       // Save user sync preference
       localStorage.setItem('tv_comp_sync_personal_pref', String(addToPersonalJournal));
 
-      onTradeAdded();
-      onClose();
+      // Trigger Trade Save Celebration (Sequence: only after persistence confirmed!)
+      const celebrationItem: TradeCelebrationData = {
+        market: formData.market,
+        direction: formData.direction as 'BUY' | 'SELL',
+        positionSize: 1,
+        pnl,
+        result: formData.result,
+        source: 'competition'
+      };
+
+      setCelebrationData(celebrationItem);
+      setShowCelebration(true);
     } catch (err: any) {
       console.error('Failed to log competition trade:', err);
       const raw = err.message || '';
@@ -305,6 +317,12 @@ export function AddCompetitionTradeModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCelebrationDismiss = () => {
+    setShowCelebration(false);
+    onTradeAdded();
+    onClose();
   };
 
   // Safe early return after all hooks are executed
@@ -354,16 +372,20 @@ export function AddCompetitionTradeModal({
                 </p>
               </div>
             </div>
-            {canSelfReinstate && (
+            {canReinstate ? (
               <Button
                 type="button"
                 size="sm"
-                onClick={handleSelfReinstate}
+                onClick={handleHostReinstate}
                 disabled={isReinstating}
                 className="shrink-0 bg-red-600 hover:bg-red-700 text-white font-medium text-xs shadow-sm h-8"
               >
-                {isReinstating ? 'Reinstating...' : 'Reinstate My Account'}
+                {isReinstating ? 'Reinstating...' : 'Reinstate Participant (Host)'}
               </Button>
+            ) : (
+              <div className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-300">
+                Self-unlocking disabled. Contact host.
+              </div>
             )}
           </div>
         )}
@@ -851,6 +873,14 @@ export function AddCompetitionTradeModal({
           </div>
         </div>
       )}
+
+      {/* Trade Save Celebration Modal */}
+      <TradeSaveCelebrationModal
+        isOpen={showCelebration}
+        trade={celebrationData}
+        onClose={handleCelebrationDismiss}
+        onViewTrade={handleCelebrationDismiss}
+      />
     </div>
   );
 }

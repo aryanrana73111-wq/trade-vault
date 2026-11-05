@@ -91,7 +91,7 @@ export function SuccessCelebration({
       // Audio autoplay policy fallback
     }
 
-    // 2. High-performance canvas confetti
+    // 2. High-performance canvas glowing flower/petal particles (Bottom -> Upward)
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -100,56 +100,67 @@ export function SuccessCelebration({
     let width = (canvas.width = canvas.parentElement?.clientWidth || window.innerWidth);
     let height = (canvas.height = canvas.parentElement?.clientHeight || window.innerHeight);
 
-    const colors = ['#10B981', '#3B82F6', '#6366F1', '#F59E0B', '#14B8A6', '#EC4899'];
-    const particleCount = 80;
+    // Glowing floral colors: gold, emerald, rose, cyan, amber, lavender
+    const colors = ['#10B981', '#34D399', '#6EE7B7', '#F59E0B', '#FBBF24', '#60A5FA', '#818CF8', '#F472B6'];
+    const particleCount = 70;
+
+    // Spawn particles from bottom edge with upward velocity
     const particles = Array.from({ length: particleCount }).map(() => ({
-      x: width * 0.5 + (Math.random() - 0.5) * 80,
-      y: height * 0.35 + (Math.random() - 0.5) * 40,
-      vx: (Math.random() - 0.5) * 12,
-      vy: (Math.random() - 0.8) * 14 - 3,
-      size: Math.random() * 6 + 4,
+      x: width * 0.15 + Math.random() * (width * 0.7),
+      y: height + Math.random() * 40,
+      vx: (Math.random() - 0.5) * 3.5,
+      vy: -(Math.random() * 5.5 + 4.5), // Upward floating velocity
+      size: Math.random() * 7 + 5,
       color: colors[Math.floor(Math.random() * colors.length)],
       rotation: Math.random() * 360,
-      rotationSpeed: (Math.random() - 0.5) * 12,
+      rotationSpeed: (Math.random() - 0.5) * 6,
+      waveFreq: Math.random() * 0.05 + 0.02,
+      waveAmp: Math.random() * 2 + 1,
       alpha: 1,
-      shape: Math.random() > 0.5 ? 'rect' : 'circle'
+      petalCount: 5
     }));
 
     let animId: number;
     let startTime = Date.now();
 
+    const drawPetal = (context: CanvasRenderingContext2D, size: number) => {
+      // Draw smooth petal / flower shape
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.bezierCurveTo(-size * 0.6, -size * 0.5, -size * 0.4, -size, 0, -size * 1.2);
+      context.bezierCurveTo(size * 0.4, -size, size * 0.6, -size * 0.5, 0, 0);
+      context.fill();
+    };
+
     const render = () => {
       const elapsed = Date.now() - startTime;
       ctx.clearRect(0, 0, width, height);
 
-      particles.forEach(p => {
-        p.x += p.vx;
+      particles.forEach((p, idx) => {
         p.y += p.vy;
-        p.vy += 0.28; // gravity
-        p.vx *= 0.985; // drag
+        p.vy *= 0.985; // gently decelerate
+        p.x += Math.sin(elapsed * p.waveFreq + idx) * p.waveAmp + p.vx;
         p.rotation += p.rotationSpeed;
 
-        if (elapsed > 1600) {
-          p.alpha = Math.max(0, p.alpha - 0.02);
+        // 2 to 3 seconds duration fade
+        if (elapsed > 1800) {
+          p.alpha = Math.max(0, p.alpha - 0.025);
         }
 
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate((p.rotation * Math.PI) / 180);
         ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10;
         ctx.globalAlpha = Math.max(0, p.alpha);
 
-        if (p.shape === 'rect') {
-          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-        } else {
-          ctx.beginPath();
-          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        drawPetal(ctx, p.size);
+
         ctx.restore();
       });
 
-      if (elapsed < 3500) {
+      if (elapsed < 3000) {
         animId = requestAnimationFrame(render);
       } else {
         ctx.clearRect(0, 0, width, height);
